@@ -17,8 +17,10 @@ import {
   Flame,
   Award,
   Clock,
-  BarChart2,
-  AlertCircle
+  Volume2,
+  VolumeX,
+  Share2,
+  CheckCheck
 } from 'lucide-react';
 import { getDynamicTypingText } from './textService';
 import {
@@ -29,6 +31,16 @@ import {
   calculateStats,
   getTodayDateStr
 } from './historyService';
+import {
+  playKeyClick,
+  playSpacebarClick,
+  playBackspaceClick,
+  playErrorTone,
+  playSuccessChime,
+  isSoundEnabled,
+  setSoundEnabled
+} from './soundService';
+import { syncDailyStreak } from './streakService';
 
 const types = ['Words', 'Sentences', 'Paragraphs', 'Numbers'];
 const levels = ['Beginner', 'Advanced', 'Expert'];
@@ -46,7 +58,9 @@ function App() {
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
 
-  // Challenge Mode & History States
+  // Sound, Streak, Challenge Mode & History States
+  const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
+  const [copied, setCopied] = useState(false);
   const [challengeMode, setChallengeMode] = useState(false);
   const [activeView, setActiveView] = useState('practice'); // 'practice' | 'challenge' | 'history'
   const [history, setHistory] = useState(() => getHistory());
@@ -64,12 +78,42 @@ function App() {
   const wpm = elapsed > 0 ? Math.round((correct / 5) / (elapsed / 60)) : 0;
   const progress = text.length ? Math.min((typed.length / text.length) * 100, 100) : 0;
 
-  // Stats and Badge tier calculation
+  // Stats, Badge tier, and Daily Streak calculation
   const stats = useMemo(() => calculateStats(history), [history]);
   const badge = useMemo(() => getBadgeStatus(stats.todayTests), [stats.todayTests]);
+  const streakData = useMemo(() => syncDailyStreak(stats.todayTests), [stats.todayTests]);
 
   // Challenge pass condition: accuracy must be >= 90%
   const passedChallenge = challengeMode ? accuracy >= 90 : true;
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+    if (next) playKeyClick();
+  }
+
+  // Copy shareable score card
+  function handleShare() {
+    const tierEmoji = badge.tier === 'gold' ? '🥇 Gold Badge Master' : badge.tier === 'silver' ? '🥈 Silver Badge' : '🔴 Red Zone';
+    const streakLine = streakData.streak > 0 ? `🔥 Streak: ${streakData.streak} Days\n` : '';
+
+    const shareText = `⚡ Keystroke Typing Practice
+━━━━━━━━━━━━━━━━━━━━━━━
+🚀 Speed: ${wpm} WPM
+🎯 Accuracy: ${accuracy}%
+📚 Category: ${level} • ${type}
+🏅 Daily Tier: ${tierEmoji} (${stats.todayTests} tests today)
+${streakLine}━━━━━━━━━━━━━━━━━━━━━━━
+Practice here: https://adityawe.github.io/Typing_Test/`;
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareText).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      }).catch(() => {});
+    }
+  }
 
   // Save to history when session finishes
   useEffect(() => {
@@ -97,6 +141,7 @@ function App() {
           window.clearInterval(timer);
           setRunning(false);
           setFinished(true);
+          playSuccessChime();
           return 0;
         }
         return value - 1;
@@ -161,10 +206,27 @@ function App() {
     if (finished || loading) return;
     const value = event.target.value.slice(0, text.length);
     if (value.length && !running) setRunning(true);
+
+    // Mechanical Keyboard Sound Effects
+    if (value.length > typed.length) {
+      const nextChar = value[value.length - 1];
+      const expectedChar = text[typed.length];
+      if (nextChar === ' ') {
+        playSpacebarClick();
+      } else if (nextChar === expectedChar) {
+        playKeyClick();
+      } else {
+        playErrorTone();
+      }
+    } else if (value.length < typed.length) {
+      playBackspaceClick();
+    }
+
     setTyped(value);
     if (value.length >= text.length) {
       setRunning(false);
       setFinished(true);
+      playSuccessChime();
     }
   }
 
@@ -236,6 +298,16 @@ function App() {
           </nav>
 
           <div className="topbar-right">
+            {/* Daily Streak Counter */}
+            <button
+              className="streak-pill"
+              onClick={() => setActiveView('challenge')}
+              title={`Daily Streak: ${streakData.streak} days consecutive!`}
+            >
+              <Flame size={12} color="#ea580c" />
+              <span>{streakData.streak} {streakData.streak === 1 ? 'DAY' : 'DAYS'}</span>
+            </button>
+
             {/* Live Daily Goal & Badge Status Button */}
             <button
               className={`badge-pill pill-${badge.tier}`}
@@ -246,6 +318,16 @@ function App() {
               {badge.tier === 'red' && `🔴 RED ZONE (${stats.todayTests}/5)`}
               {badge.tier === 'silver' && `🥈 SILVER (${stats.todayTests})`}
               {badge.tier === 'gold' && `🥇 GOLD (${stats.todayTests})`}
+            </button>
+
+            {/* Mechanical Keyboard Sound Toggle */}
+            <button
+              className={`icon-button ${soundOn ? 'sound-active' : ''}`}
+              onClick={toggleSound}
+              aria-label={soundOn ? 'Mute keyboard sounds' : 'Enable mechanical keyboard sounds'}
+              title={soundOn ? 'Sound: Mechanical Click (On)' : 'Sound: Muted'}
+            >
+              {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
             </button>
 
             <span className="top-divider" />
@@ -464,6 +546,26 @@ function App() {
                       )}
                     </div>
 
+                    {/* Shareable Score Card Box */}
+                    <div className="share-card-container">
+                      <div className="share-card-header">
+                        <span>⚡ KEYSTROKE SCORE CARD</span>
+                        <span>{streakData.streak > 0 && `🔥 ${streakData.streak} DAYS`}</span>
+                      </div>
+                      <div className="share-card-row">
+                        <span>Speed</span>
+                        <span>{wpm} WPM</span>
+                      </div>
+                      <div className="share-card-row">
+                        <span>Accuracy</span>
+                        <span>{accuracy}%</span>
+                      </div>
+                      <div className="share-card-row">
+                        <span>Daily Tier</span>
+                        <span>{badge.name} ({stats.todayTests} today)</span>
+                      </div>
+                    </div>
+
                     <div className="finish-actions">
                       <button className="finish-action-btn primary" onClick={() => loadPassage()}>
                         <Shuffle size={13} /> Next Passage
@@ -471,12 +573,23 @@ function App() {
                       <button className="finish-action-btn secondary" onClick={restartCurrent}>
                         <RotateCcw size={13} /> Retry
                       </button>
+                      <button className="finish-action-btn secondary" onClick={handleShare}>
+                        {copied ? (
+                          <>
+                            <CheckCheck size={13} color="#244b3d" /> Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Share2 size={13} /> Share Score
+                          </>
+                        )}
+                      </button>
                       <button
                         className="finish-action-btn secondary"
                         onClick={() => setActiveView('history')}
                         title="View history"
                       >
-                        <History size={13} /> View History
+                        <History size={13} /> History
                       </button>
                     </div>
                   </div>
@@ -596,12 +709,31 @@ function App() {
         {activeView === 'challenge' && (
           <section className="dashboard-section" style={{ marginTop: 0 }}>
             <div className="intro">
-              <div className="eyebrow"><span className="eyebrow-line" /> DAILY QUOTA & BADGES</div>
+              <div className="eyebrow"><span className="eyebrow-line" /> DAILY QUOTA & STREAK</div>
               <h1>Daily <em>Challenge.</em></h1>
               <p>Practice consistently. Meet your mandatory 5 sessions daily to maintain Silver and push for Gold.</p>
             </div>
 
             <div className="section-card">
+              {/* Daily Streak Highlight Banner */}
+              <div className="streak-dashboard-banner">
+                <div>
+                  <div className="streak-banner-title">
+                    <Flame size={18} color="#ea580c" />
+                    <span>{streakData.streak}-Day Consecutive Streak</span>
+                  </div>
+                  <div className="streak-banner-desc">
+                    {stats.todayTests >= 5
+                      ? 'Great job! Today’s 5-test mandatory goal is complete. Your streak is safe.'
+                      : `Complete ${5 - stats.todayTests} more tests today to extend your streak!`}
+                  </div>
+                </div>
+                <div className="streak-badge-count">
+                  🔥 {streakData.streak}
+                  <small>BEST: {streakData.bestStreak} DAYS</small>
+                </div>
+              </div>
+
               <div className="section-header">
                 <div>
                   <h3 className="section-title">
@@ -733,6 +865,16 @@ function App() {
 
             {/* Overall Stats Cards */}
             <div className="history-stats-grid">
+              <div className="history-stat-box">
+                <span className="stat-box-label">DAILY STREAK</span>
+                <span className="stat-box-val" style={{ color: '#ea580c' }}>
+                  🔥 {streakData.streak}<small>DAYS</small>
+                </span>
+                <div style={{ fontSize: '8px', color: '#9a3412', marginTop: '2px', fontFamily: 'DM Mono' }}>
+                  BEST: {streakData.bestStreak}d
+                </div>
+              </div>
+
               <div className="history-stat-box">
                 <span className="stat-box-label">TODAY'S TESTS</span>
                 <span className="stat-box-val">{stats.todayTests}</span>
