@@ -1,6 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, RotateCcw, Timer, Zap, Target, Check, ArrowUpRight, Shuffle, Loader2 } from 'lucide-react';
+import {
+  Keyboard,
+  RotateCcw,
+  Timer,
+  Zap,
+  Target,
+  Check,
+  ArrowUpRight,
+  Shuffle,
+  Loader2,
+  Trophy,
+  Medal,
+  ShieldAlert,
+  History,
+  Trash2,
+  Flame,
+  Award,
+  Clock,
+  BarChart2,
+  AlertCircle
+} from 'lucide-react';
 import { getDynamicTypingText } from './textService';
+import {
+  getHistory,
+  saveHistoryRecord,
+  clearAllHistory,
+  getBadgeStatus,
+  calculateStats,
+  getTodayDateStr
+} from './historyService';
 
 const types = ['Words', 'Sentences', 'Paragraphs', 'Numbers'];
 const levels = ['Beginner', 'Advanced', 'Expert'];
@@ -17,8 +45,16 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(30);
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
+
+  // Challenge Mode & History States
+  const [challengeMode, setChallengeMode] = useState(false);
+  const [activeView, setActiveView] = useState('practice'); // 'practice' | 'challenge' | 'history'
+  const [history, setHistory] = useState(() => getHistory());
+  const [historyFilter, setHistoryFilter] = useState('all'); // 'all' | 'today' | 'challenge'
+
   const inputRef = useRef(null);
   const fetchIdRef = useRef(0);
+  const hasSavedRef = useRef(false);
   const stateRef = useRef({ level, type, duration });
   stateRef.current = { level, type, duration };
 
@@ -28,6 +64,31 @@ function App() {
   const wpm = elapsed > 0 ? Math.round((correct / 5) / (elapsed / 60)) : 0;
   const progress = text.length ? Math.min((typed.length / text.length) * 100, 100) : 0;
 
+  // Stats and Badge tier calculation
+  const stats = useMemo(() => calculateStats(history), [history]);
+  const badge = useMemo(() => getBadgeStatus(stats.todayTests), [stats.todayTests]);
+
+  // Challenge pass condition: accuracy must be >= 90%
+  const passedChallenge = challengeMode ? accuracy >= 90 : true;
+
+  // Save to history when session finishes
+  useEffect(() => {
+    if (finished && !hasSavedRef.current && typed.length >= 3) {
+      hasSavedRef.current = true;
+      const updated = saveHistoryRecord({
+        wpm,
+        accuracy,
+        level,
+        type,
+        duration,
+        challengeMode,
+        passedChallenge
+      });
+      setHistory(updated);
+    }
+  }, [finished, typed.length, wpm, accuracy, level, type, duration, challengeMode, passedChallenge]);
+
+  // Timer countdown
   useEffect(() => {
     if (!running) return undefined;
     const timer = window.setInterval(() => {
@@ -50,6 +111,7 @@ function App() {
     const targetDuration = nextDuration ?? stateRef.current.duration;
 
     const currentId = ++fetchIdRef.current;
+    hasSavedRef.current = false;
     setLoading(true);
     setRunning(false);
     setFinished(false);
@@ -75,6 +137,7 @@ function App() {
   }
 
   function restartCurrent() {
+    hasSavedRef.current = false;
     setTyped('');
     setTimeLeft(duration);
     setRunning(false);
@@ -82,7 +145,7 @@ function App() {
     inputRef.current?.focus();
   }
 
-  // Load fresh dynamic text from API on initial mount
+  // Load fresh dynamic text on initial mount
   useEffect(() => {
     loadPassage('Beginner', 'Words', 30);
   }, []);
@@ -105,16 +168,86 @@ function App() {
     }
   }
 
+  function handleClearHistory() {
+    if (window.confirm('Are you sure you want to clear your typing test history?')) {
+      clearAllHistory();
+      setHistory([]);
+    }
+  }
+
+  // Filtered history list
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'today') {
+      const today = getTodayDateStr();
+      return history.filter((item) => item.dateStr === today);
+    }
+    if (historyFilter === 'challenge') {
+      return history.filter((item) => item.challengeMode);
+    }
+    return history;
+  }, [history, historyFilter]);
+
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-inner">
-          <a className="brand" href="#home" aria-label="Keystroke home">
+          <a
+            className="brand"
+            href="#home"
+            onClick={(e) => {
+              e.preventDefault();
+              setActiveView('practice');
+            }}
+            aria-label="Keystroke home"
+          >
             <span className="brand-mark"><Keyboard size={16} strokeWidth={2.2} /></span>
             <span>key<span className="brand-light">stroke</span></span>
           </a>
+
+          {/* Navigation Tabs */}
+          <nav className="topbar-nav" aria-label="Views">
+            <button
+              className={`nav-tab-btn ${activeView === 'practice' && !challengeMode ? 'active' : ''}`}
+              onClick={() => {
+                setChallengeMode(false);
+                setActiveView('practice');
+              }}
+            >
+              Practice
+            </button>
+            <button
+              className={`nav-tab-btn ${challengeMode || activeView === 'challenge' ? 'active' : ''}`}
+              onClick={() => {
+                setChallengeMode(true);
+                setActiveView('challenge');
+              }}
+            >
+              <Trophy size={12} />
+              Challenge Mode
+            </button>
+            <button
+              className={`nav-tab-btn ${activeView === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveView('history')}
+            >
+              <History size={12} />
+              History
+              {history.length > 0 && <span className="badge-count">{history.length}</span>}
+            </button>
+          </nav>
+
           <div className="topbar-right">
-            <span className="practice-label"><span className="live-dot" /> PRACTICE SPACE</span>
+            {/* Live Daily Goal & Badge Status Button */}
+            <button
+              className={`badge-pill pill-${badge.tier}`}
+              onClick={() => setActiveView('challenge')}
+              title={`${badge.title} - ${badge.description}`}
+            >
+              <span className={`pulse-dot ${badge.tier}`} />
+              {badge.tier === 'red' && `🔴 RED ZONE (${stats.todayTests}/5)`}
+              {badge.tier === 'silver' && `🥈 SILVER (${stats.todayTests})`}
+              {badge.tier === 'gold' && `🥇 GOLD (${stats.todayTests})`}
+            </button>
+
             <span className="top-divider" />
             <button
               className="icon-button"
@@ -138,186 +271,599 @@ function App() {
       </header>
 
       <main id="home">
-        <section className="intro">
-          <div className="eyebrow"><span className="eyebrow-line" /> THE DAILY KEYSTROKE</div>
-          <h1>Find your <em>flow.</em></h1>
-          <p>Pick your pace, find your rhythm, and let your fingers do the talking.</p>
-        </section>
+        {/* VIEW 1: PRACTICE & TYPING TEST */}
+        {activeView === 'practice' && (
+          <>
+            <section className="intro">
+              <div className="eyebrow"><span className="eyebrow-line" /> THE DAILY KEYSTROKE</div>
+              <h1>
+                {challengeMode ? (
+                  <>Daily <em>Challenge.</em></>
+                ) : (
+                  <>Find your <em>flow.</em></>
+                )}
+              </h1>
+              <p>
+                {challengeMode
+                  ? 'Mandatory 5 tests daily! Complete sessions with ≥90% accuracy to earn Silver and Gold badges.'
+                  : 'Pick your pace, find your rhythm, and let your fingers do the talking.'}
+              </p>
+            </section>
 
-        <section className="practice-card" aria-label="Typing test">
-          <div className="controls-toolbar">
-            <div className="control-group">
-              <span className="control-label">LEVEL</span>
-              <div className="pill-tabs" role="tablist" aria-label="Difficulty level">
-                {levels.map((item, index) => (
-                  <button
-                    key={item}
-                    role="tab"
-                    aria-selected={level === item}
-                    className={`pill-tab ${level === item ? 'active' : ''}`}
-                    onClick={() => loadPassage(item, type, duration)}
-                    disabled={loading}
-                  >
-                    <span className="pill-num">0{index + 1}</span>
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="control-group">
-              <span className="control-label">TYPE</span>
-              <div className="pill-tabs" role="tablist" aria-label="Practice type">
-                {types.map((item) => (
-                  <button
-                    key={item}
-                    role="tab"
-                    aria-selected={type === item}
-                    className={`pill-tab ${type === item ? 'active' : ''}`}
-                    onClick={() => loadPassage(level, item, duration)}
-                    disabled={loading}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="control-group">
-              <span className="control-label"><Timer size={11} /> TIME</span>
-              <div className="pill-tabs" role="tablist" aria-label="Test duration">
-                {durations.map((value) => (
-                  <button
-                    key={value}
-                    role="tab"
-                    aria-selected={duration === value}
-                    className={`pill-tab ${duration === value ? 'active' : ''}`}
-                    onClick={() => {
-                      setDuration(value);
-                      setTimeLeft(value);
-                      setTyped('');
-                      setRunning(false);
-                      setFinished(false);
-                    }}
-                  >
-                    {value}s
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="stats-row" aria-live="polite">
-            <div className="stat">
-              <span className="stat-label"><Zap size={11} /> SPEED</span>
-              <span className="stat-value">{wpm}<small>WPM</small></span>
-            </div>
-            <div className="stat-separator" />
-            <div className="stat">
-              <span className="stat-label"><Target size={11} /> ACCURACY</span>
-              <span className="stat-value">{accuracy}<small>%</small></span>
-            </div>
-            <div className="stat-separator" />
-            <div className="stat timer-stat">
-              <span className="stat-label"><Timer size={11} /> REMAINING</span>
-              <span className={`stat-value ${timeLeft <= 5 ? 'urgent' : ''}`}>
-                {String(Math.floor(timeLeft / 60)).padStart(2, '0')}:{String(timeLeft % 60).padStart(2, '0')}
-              </span>
-            </div>
-            <div className="session-tag">
-              {loading ? (
-                <span className="api-loading"><Loader2 size={9} className="spin-icon" /> FETCHING</span>
-              ) : (
-                <span>{level.toUpperCase()} • {source.toUpperCase()}</span>
+            <section className={`practice-card ${challengeMode ? 'is-challenge' : ''}`} aria-label="Typing test">
+              {/* Challenge Mode HUD Banner */}
+              {challengeMode && (
+                <div className="challenge-hud">
+                  <div className="challenge-hud-left">
+                    <Flame size={14} color="#eab308" />
+                    <span>DAILY CHALLENGE</span>
+                    <span className={`challenge-hud-badge ${badge.tier}`}>
+                      {badge.name.toUpperCase()}: {stats.todayTests}/5 MANDATORY
+                    </span>
+                  </div>
+                  <div className="challenge-hud-right">
+                    <span className="hud-req">TARGET: ≥90% ACCURACY</span>
+                    <button
+                      className="restart-button"
+                      onClick={() => setChallengeMode(false)}
+                      title="Switch back to regular practice"
+                    >
+                      Exit Challenge
+                    </button>
+                  </div>
+                </div>
               )}
-            </div>
-          </div>
 
-          <div className={`typing-area ${running ? 'is-running' : ''}`} onClick={startTyping}>
-            <div className="typing-hint">
-              <span className="hint-key">↵</span> CLICK HERE OR START TYPING
-            </div>
-            <div className="passage" aria-hidden="true">
-              {[...text].map((char, index) => {
-                let cls = 'char';
-                if (index < typed.length) cls += typed[index] === char ? ' correct-char' : ' wrong-char';
-                else if (index === typed.length) cls += ' current-char';
-                return <span className={cls} key={`${index}-${char}`}>{char === ' ' ? '\u00a0' : char}</span>;
-              })}
-            </div>
-            <textarea
-              ref={inputRef}
-              className="typing-input"
-              value={typed}
-              onChange={handleChange}
-              onKeyDown={(event) => {
-                if (event.key === 'Tab') {
-                  event.preventDefault();
-                  loadPassage();
-                } else if (event.key === 'Escape') {
-                  restartCurrent();
-                }
-              }}
-              aria-label="Type the displayed passage here"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck="false"
-              disabled={finished || loading}
-            />
-            {!running && !finished && !loading && (
-              <div className="start-overlay">
-                <span className="start-circle"><ArrowUpRight size={15} /></span>
-                <span>Click to start typing</span>
+              <div className="controls-toolbar">
+                <div className="control-group">
+                  <span className="control-label">LEVEL</span>
+                  <div className="pill-tabs" role="tablist" aria-label="Difficulty level">
+                    {levels.map((item, index) => (
+                      <button
+                        key={item}
+                        role="tab"
+                        aria-selected={level === item}
+                        className={`pill-tab ${level === item ? 'active' : ''}`}
+                        onClick={() => loadPassage(item, type, duration)}
+                        disabled={loading}
+                      >
+                        <span className="pill-num">0{index + 1}</span>
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="control-group">
+                  <span className="control-label">TYPE</span>
+                  <div className="pill-tabs" role="tablist" aria-label="Practice type">
+                    {types.map((item) => (
+                      <button
+                        key={item}
+                        role="tab"
+                        aria-selected={type === item}
+                        className={`pill-tab ${type === item ? 'active' : ''}`}
+                        onClick={() => loadPassage(level, item, duration)}
+                        disabled={loading}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="control-group">
+                  <span className="control-label"><Timer size={11} /> TIME</span>
+                  <div className="pill-tabs" role="tablist" aria-label="Test duration">
+                    {durations.map((value) => (
+                      <button
+                        key={value}
+                        role="tab"
+                        aria-selected={duration === value}
+                        className={`pill-tab ${duration === value ? 'active' : ''}`}
+                        onClick={() => {
+                          setDuration(value);
+                          setTimeLeft(value);
+                          setTyped('');
+                          setRunning(false);
+                          setFinished(false);
+                        }}
+                      >
+                        {value}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
-            {loading && (
-              <div className="start-overlay">
-                <span className="start-circle"><Loader2 size={15} className="spin-icon" /></span>
-                <span>Fetching new text from free API...</span>
+
+              <div className="stats-row" aria-live="polite">
+                <div className="stat">
+                  <span className="stat-label"><Zap size={11} /> SPEED</span>
+                  <span className="stat-value">{wpm}<small>WPM</small></span>
+                </div>
+                <div className="stat-separator" />
+                <div className="stat">
+                  <span className="stat-label"><Target size={11} /> ACCURACY</span>
+                  <span className="stat-value">{accuracy}<small>%</small></span>
+                </div>
+                <div className="stat-separator" />
+                <div className="stat timer-stat">
+                  <span className="stat-label"><Timer size={11} /> REMAINING</span>
+                  <span className={`stat-value ${timeLeft <= 5 ? 'urgent' : ''}`}>
+                    {String(Math.floor(timeLeft / 60)).padStart(2, '0')}:{String(timeLeft % 60).padStart(2, '0')}
+                  </span>
+                </div>
+                <div className="session-tag">
+                  {loading ? (
+                    <span className="api-loading"><Loader2 size={9} className="spin-icon" /> FETCHING</span>
+                  ) : (
+                    <span>{level.toUpperCase()} • {source.toUpperCase()}</span>
+                  )}
+                </div>
               </div>
-            )}
-            {finished && (
-              <div className="finish-overlay">
-                <span className="finish-check"><Check size={17} /></span>
-                <strong>Well done!</strong>
-                <span>You scored {wpm} WPM with {accuracy}% accuracy.</span>
-                <div className="finish-actions">
-                  <button className="finish-action-btn primary" onClick={() => loadPassage()}>
-                    <Shuffle size={13} /> Next Passage
+
+              <div className={`typing-area ${running ? 'is-running' : ''}`} onClick={startTyping}>
+                <div className="typing-hint">
+                  <span className="hint-key">↵</span> CLICK HERE OR START TYPING
+                </div>
+                <div className="passage" aria-hidden="true">
+                  {[...text].map((char, index) => {
+                    let cls = 'char';
+                    if (index < typed.length) cls += typed[index] === char ? ' correct-char' : ' wrong-char';
+                    else if (index === typed.length) cls += ' current-char';
+                    return <span className={cls} key={`${index}-${char}`}>{char === ' ' ? '\u00a0' : char}</span>;
+                  })}
+                </div>
+                <textarea
+                  ref={inputRef}
+                  className="typing-input"
+                  value={typed}
+                  onChange={handleChange}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Tab') {
+                      event.preventDefault();
+                      loadPassage();
+                    } else if (event.key === 'Escape') {
+                      restartCurrent();
+                    }
+                  }}
+                  aria-label="Type the displayed passage here"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  disabled={finished || loading}
+                />
+                {!running && !finished && !loading && (
+                  <div className="start-overlay">
+                    <span className="start-circle"><ArrowUpRight size={15} /></span>
+                    <span>Click to start typing</span>
+                  </div>
+                )}
+                {loading && (
+                  <div className="start-overlay">
+                    <span className="start-circle"><Loader2 size={15} className="spin-icon" /></span>
+                    <span>Fetching new text from free API...</span>
+                  </div>
+                )}
+                {finished && (
+                  <div className="finish-overlay">
+                    <span className="finish-check"><Check size={17} /></span>
+                    <strong>{challengeMode && !passedChallenge ? 'Challenge Missed!' : 'Well done!'}</strong>
+                    <span>You scored {wpm} WPM with {accuracy}% accuracy.</span>
+
+                    {/* Daily Badge & Quota Feedback */}
+                    <div className={`finish-badge-alert ${badge.tier}`}>
+                      {badge.tier === 'red' && (
+                        <span>🔴 Red Zone ({stats.todayTests}/5 done): Complete {5 - stats.todayTests} more tests today to earn Silver!</span>
+                      )}
+                      {badge.tier === 'silver' && (
+                        <span>🥈 Silver Badge Active! Daily 5 quota met ({stats.todayTests} done). Reach 15 for Gold!</span>
+                      )}
+                      {badge.tier === 'gold' && (
+                        <span>🥇 Gold Badge Master! 15+ tests completed today. Elite typist!</span>
+                      )}
+                    </div>
+
+                    <div className="finish-actions">
+                      <button className="finish-action-btn primary" onClick={() => loadPassage()}>
+                        <Shuffle size={13} /> Next Passage
+                      </button>
+                      <button className="finish-action-btn secondary" onClick={restartCurrent}>
+                        <RotateCcw size={13} /> Retry
+                      </button>
+                      <button
+                        className="finish-action-btn secondary"
+                        onClick={() => setActiveView('history')}
+                        title="View history"
+                      >
+                        <History size={13} /> View History
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
+              </div>
+
+              <div className="card-footer">
+                <span>
+                  <span className="footer-dot" /> {finished ? 'SESSION COMPLETED' : running ? 'TEST IN PROGRESS' : 'READY'}
+                  <span className="footer-source-note">• {source.toUpperCase()}</span>
+                </span>
+                <div className="footer-actions">
+                  <button
+                    className="restart-button"
+                    onClick={() => loadPassage()}
+                    disabled={loading}
+                    title="Fetch new random text (Free API)"
+                  >
+                    {loading ? <Loader2 size={12} className="spin-icon" /> : <Shuffle size={12} />} New Text
                   </button>
-                  <button className="finish-action-btn secondary" onClick={restartCurrent}>
-                    <RotateCcw size={13} /> Retry
+                  <button
+                    className="restart-button"
+                    onClick={restartCurrent}
+                    title="Restart current text (Esc)"
+                  >
+                    <RotateCcw size={12} /> Restart <span className="shortcut">Esc</span>
                   </button>
                 </div>
               </div>
-            )}
-            <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
-          </div>
+            </section>
 
-          <div className="card-footer">
-            <span>
-              <span className="footer-dot" /> {finished ? 'SESSION COMPLETED' : running ? 'TEST IN PROGRESS' : 'READY'}
-              <span className="footer-source-note">• {source.toUpperCase()}</span>
-            </span>
-            <div className="footer-actions">
-              <button
-                className="restart-button"
-                onClick={() => loadPassage()}
-                disabled={loading}
-                title="Fetch new random text (Free API)"
-              >
-                {loading ? <Loader2 size={12} className="spin-icon" /> : <Shuffle size={12} />} New Text
-              </button>
-              <button
-                className="restart-button"
-                onClick={restartCurrent}
-                title="Restart current text (Esc)"
-              >
-                <RotateCcw size={12} /> Restart <span className="shortcut">Esc</span>
-              </button>
+            {/* Quick Challenge & History Preview Cards */}
+            <div className="dashboard-section">
+              <div className="section-card">
+                <div className="section-header">
+                  <div>
+                    <h3 className="section-title">
+                      <Trophy size={16} color="#eab308" />
+                      Daily Challenge & Badge Progress
+                    </h3>
+                    <p className="section-desc">5 typing tests per day mandatory quota</p>
+                  </div>
+                  <button
+                    className="restart-button"
+                    onClick={() => setActiveView('challenge')}
+                  >
+                    View Details →
+                  </button>
+                </div>
+
+                <div className="daily-progress-container">
+                  <div className="progress-labels">
+                    <span>Today: {stats.todayTests} tests completed</span>
+                    <span>
+                      {stats.todayTests < 5
+                        ? `${5 - stats.todayTests} tests to Silver`
+                        : stats.todayTests < 15
+                        ? `${15 - stats.todayTests} tests to Gold`
+                        : 'Gold Master Reached!'}
+                    </span>
+                  </div>
+                  <div className="progress-bar-rail">
+                    <div
+                      className={`progress-bar-fill ${badge.tier}`}
+                      style={{
+                        width: stats.todayTests >= 15
+                          ? '100%'
+                          : stats.todayTests >= 5
+                          ? `${50 + ((stats.todayTests - 5) / 10) * 50}%`
+                          : `${(stats.todayTests / 5) * 50}%`
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="badges-grid">
+                  <div className={`badge-card tier-red ${badge.tier === 'red' ? 'active-tier' : ''}`}>
+                    <span className="badge-card-icon">🔴</span>
+                    <h5>Red Zone</h5>
+                    <span className="badge-card-rule">&lt; 5 Tests / Day</span>
+                    <div>
+                      <span className={`badge-card-status ${badge.tier === 'red' ? 'current' : 'pending'}`}>
+                        {badge.tier === 'red' ? 'CURRENT STATUS' : 'AVOIDED'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={`badge-card tier-silver ${badge.tier === 'silver' ? 'active-tier' : ''}`}>
+                    <span className="badge-card-icon">🥈</span>
+                    <h5>Silver Badge</h5>
+                    <span className="badge-card-rule">5 – 14 Tests / Day</span>
+                    <div>
+                      <span className={`badge-card-status ${badge.tier === 'silver' ? 'current' : stats.todayTests >= 5 ? 'current' : 'pending'}`}>
+                        {stats.todayTests >= 5 ? 'ACHIEVED' : 'GOAL: 5 TESTS'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={`badge-card tier-gold ${badge.tier === 'gold' ? 'active-tier' : ''}`}>
+                    <span className="badge-card-icon">🥇</span>
+                    <h5>Gold Badge</h5>
+                    <span className="badge-card-rule">15+ Tests / Day</span>
+                    <div>
+                      <span className={`badge-card-status ${badge.tier === 'gold' ? 'current' : 'pending'}`}>
+                        {stats.todayTests >= 15 ? 'MASTER UNLOCKED' : 'GOAL: 15 TESTS'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
+          </>
+        )}
+
+        {/* VIEW 2: CHALLENGE MODE & DAILY BADGE DASHBOARD */}
+        {activeView === 'challenge' && (
+          <section className="dashboard-section" style={{ marginTop: 0 }}>
+            <div className="intro">
+              <div className="eyebrow"><span className="eyebrow-line" /> DAILY QUOTA & BADGES</div>
+              <h1>Daily <em>Challenge.</em></h1>
+              <p>Practice consistently. Meet your mandatory 5 sessions daily to maintain Silver and push for Gold.</p>
+            </div>
+
+            <div className="section-card">
+              <div className="section-header">
+                <div>
+                  <h3 className="section-title">
+                    <Award size={17} color="#244b3d" />
+                    Daily Badge Status
+                  </h3>
+                  <p className="section-desc">Resetting every midnight local time</p>
+                </div>
+                <button
+                  className="finish-action-btn primary"
+                  onClick={() => {
+                    setChallengeMode(true);
+                    setActiveView('practice');
+                    loadPassage();
+                  }}
+                >
+                  <Flame size={13} /> Start Challenge Test
+                </button>
+              </div>
+
+              {/* Status Alert Banner */}
+              <div className={`tracker-banner ${badge.tier}`}>
+                <div>
+                  {badge.tier === 'red' && <ShieldAlert size={20} color="#dc2626" />}
+                  {badge.tier === 'silver' && <Medal size={20} color="#475569" />}
+                  {badge.tier === 'gold' && <Trophy size={20} color="#ca8a04" />}
+                </div>
+                <div>
+                  <h4>{badge.heading}</h4>
+                  <p>{badge.description}</p>
+                </div>
+              </div>
+
+              {/* Progress Tracker */}
+              <div className="daily-progress-container">
+                <div className="progress-labels">
+                  <span>Current: <strong>{stats.todayTests}</strong> tests completed today</span>
+                  <span>
+                    {stats.todayTests < 5
+                      ? `${5 - stats.todayTests} tests needed for Silver`
+                      : stats.todayTests < 15
+                      ? `${15 - stats.todayTests} tests needed for Gold`
+                      : 'Gold Status Maintained!'}
+                  </span>
+                </div>
+                <div className="progress-bar-rail" style={{ height: '10px' }}>
+                  <div
+                    className={`progress-bar-fill ${badge.tier}`}
+                    style={{
+                      width: stats.todayTests >= 15
+                        ? '100%'
+                        : stats.todayTests >= 5
+                        ? `${50 + ((stats.todayTests - 5) / 10) * 50}%`
+                        : `${(stats.todayTests / 5) * 50}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Tier Cards */}
+              <div className="badges-grid">
+                <div className={`badge-card tier-red ${badge.tier === 'red' ? 'active-tier' : ''}`}>
+                  <span className="badge-card-icon">🔴</span>
+                  <h5>Red Zone</h5>
+                  <span className="badge-card-rule">&lt; 5 Tests Completed</span>
+                  <p style={{ fontSize: '10px', color: '#88958c', margin: '6px 0' }}>
+                    Mandatory minimum requirement not met. Action required!
+                  </p>
+                  <div>
+                    <span className={`badge-card-status ${badge.tier === 'red' ? 'current' : 'pending'}`}>
+                      {badge.tier === 'red' ? 'ACTIVE: IN RED ZONE' : 'CLEARED'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`badge-card tier-silver ${badge.tier === 'silver' ? 'active-tier' : ''}`}>
+                  <span className="badge-card-icon">🥈</span>
+                  <h5>Silver Badge</h5>
+                  <span className="badge-card-rule">5 – 14 Tests Completed</span>
+                  <p style={{ fontSize: '10px', color: '#88958c', margin: '6px 0' }}>
+                    Mandatory daily typing quota successfully completed.
+                  </p>
+                  <div>
+                    <span className={`badge-card-status ${badge.tier === 'silver' ? 'current' : stats.todayTests >= 5 ? 'current' : 'pending'}`}>
+                      {stats.todayTests >= 5 ? 'BADGE UNLOCKED' : 'NEED 5 TESTS'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`badge-card tier-gold ${badge.tier === 'gold' ? 'active-tier' : ''}`}>
+                  <span className="badge-card-icon">🥇</span>
+                  <h5>Gold Badge Master</h5>
+                  <span className="badge-card-rule">15+ Tests Completed</span>
+                  <p style={{ fontSize: '10px', color: '#88958c', margin: '6px 0' }}>
+                    Elite milestone! Outstanding dedication and typing volume.
+                  </p>
+                  <div>
+                    <span className={`badge-card-status ${badge.tier === 'gold' ? 'current' : 'pending'}`}>
+                      {stats.todayTests >= 15 ? 'GOLD CHAMPION' : 'NEED 15 TESTS'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '18px', textAlign: 'center' }}>
+                <button
+                  className="finish-action-btn primary"
+                  onClick={() => {
+                    setChallengeMode(true);
+                    setActiveView('practice');
+                    loadPassage();
+                  }}
+                >
+                  Start Daily Challenge (Target 5 Sessions) →
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* VIEW 3: HISTORY & PERFORMANCE STATS */}
+        {activeView === 'history' && (
+          <section className="dashboard-section" style={{ marginTop: 0 }}>
+            <div className="intro">
+              <div className="eyebrow"><span className="eyebrow-line" /> PERFORMANCE LOG</div>
+              <h1>Typing <em>History.</em></h1>
+              <p>Track your score, accuracy, and consistency across all your practice sessions.</p>
+            </div>
+
+            {/* Overall Stats Cards */}
+            <div className="history-stats-grid">
+              <div className="history-stat-box">
+                <span className="stat-box-label">TODAY'S TESTS</span>
+                <span className="stat-box-val">{stats.todayTests}</span>
+                <div style={{ marginTop: '2px' }}>
+                  <span className={`badge-pill pill-${badge.tier}`} style={{ fontSize: '8px', padding: '1px 5px' }}>
+                    {badge.name.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="history-stat-box">
+                <span className="stat-box-label">ALL-TIME SESSIONS</span>
+                <span className="stat-box-val">{stats.totalTests}</span>
+              </div>
+
+              <div className="history-stat-box">
+                <span className="stat-box-label">PEAK SPEED</span>
+                <span className="stat-box-val">{stats.bestWpm}<small>WPM</small></span>
+              </div>
+
+              <div className="history-stat-box">
+                <span className="stat-box-label">AVERAGE SPEED</span>
+                <span className="stat-box-val">{stats.avgWpm}<small>WPM</small></span>
+              </div>
+
+              <div className="history-stat-box">
+                <span className="stat-box-label">AVG ACCURACY</span>
+                <span className="stat-box-val">{stats.avgAccuracy}<small>%</small></span>
+              </div>
+            </div>
+
+            {/* History Table Card */}
+            <div className="section-card">
+              <div className="section-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <h3 className="section-title">
+                    <History size={16} />
+                    Session Records ({filteredHistory.length})
+                  </h3>
+                  {/* Filter tabs */}
+                  <div className="pill-tabs" style={{ background: '#f5f7f4' }}>
+                    <button
+                      className={`pill-tab ${historyFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setHistoryFilter('all')}
+                      style={{ padding: '2px 8px', fontSize: '9px' }}
+                    >
+                      All
+                    </button>
+                    <button
+                      className={`pill-tab ${historyFilter === 'today' ? 'active' : ''}`}
+                      onClick={() => setHistoryFilter('today')}
+                      style={{ padding: '2px 8px', fontSize: '9px' }}
+                    >
+                      Today ({stats.todayTests})
+                    </button>
+                    <button
+                      className={`pill-tab ${historyFilter === 'challenge' ? 'active' : ''}`}
+                      onClick={() => setHistoryFilter('challenge')}
+                      style={{ padding: '2px 8px', fontSize: '9px' }}
+                    >
+                      Challenge Mode
+                    </button>
+                  </div>
+                </div>
+
+                {history.length > 0 && (
+                  <button className="clear-btn" onClick={handleClearHistory} title="Clear saved history">
+                    <Trash2 size={11} /> Clear History
+                  </button>
+                )}
+              </div>
+
+              {filteredHistory.length === 0 ? (
+                <div className="empty-history">
+                  <Clock size={28} className="empty-history-icon" />
+                  <p>No typing sessions recorded under this filter yet.</p>
+                  <button
+                    className="finish-action-btn primary"
+                    onClick={() => {
+                      setActiveView('practice');
+                      loadPassage();
+                    }}
+                  >
+                    Start a Typing Test
+                  </button>
+                </div>
+              ) : (
+                <div className="history-table-wrapper">
+                  <table className="history-table">
+                    <thead>
+                      <tr>
+                        <th>DATE & TIME</th>
+                        <th>MODE</th>
+                        <th>CATEGORY</th>
+                        <th>SPEED</th>
+                        <th>ACCURACY</th>
+                        <th>DURATION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredHistory.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <span style={{ fontWeight: 500 }}>{item.formattedDate}</span>
+                          </td>
+                          <td>
+                            <span className={`table-tag ${item.challengeMode ? 'challenge' : 'practice'}`}>
+                              {item.challengeMode ? 'CHALLENGE' : 'PRACTICE'}
+                            </span>
+                          </td>
+                          <td>
+                            <span>{item.level} • {item.type}</span>
+                          </td>
+                          <td>
+                            <span className="table-wpm">{item.wpm} WPM</span>
+                          </td>
+                          <td>
+                            <span className="table-acc">{item.accuracy}%</span>
+                          </td>
+                          <td>
+                            <span style={{ color: '#88968d', fontFamily: 'DM Mono' }}>{item.duration}s</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         <div className="below-note">
           <span className="note-spark">✳</span>
@@ -328,7 +874,7 @@ function App() {
       </main>
 
       <footer className="page-footer">
-        <span>KEYSTROKE PRACTICE</span>
+        <span>KEYSTROKE PRACTICE • DAILY MANDATORY: 5 TESTS</span>
         <span>ONE KEY AT A TIME <span className="footer-heart">♥</span></span>
       </footer>
     </div>
