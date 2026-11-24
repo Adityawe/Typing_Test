@@ -23,7 +23,8 @@ import {
   CheckCheck,
   BarChart3,
   TrendingUp,
-  CalendarDays
+  CalendarDays,
+  X
 } from 'lucide-react';
 import { getDynamicTypingText } from './textService';
 import {
@@ -542,73 +543,6 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                   <div className="start-overlay">
                     <span className="start-circle"><Loader2 size={15} className="spin-icon" /></span>
                     <span>Fetching new text from free API...</span>
-                  </div>
-                )}
-                {finished && (
-                  <div className="finish-overlay">
-                    <span className="finish-check"><Check size={17} /></span>
-                    <strong>{challengeMode && !passedChallenge ? 'Challenge Missed!' : 'Well done!'}</strong>
-                    <span>You scored {wpm} WPM with {accuracy}% accuracy.</span>
-
-                    {/* Daily Badge & Quota Feedback */}
-                    <div className={`finish-badge-alert ${badge.tier}`}>
-                      {badge.tier === 'red' && (
-                        <span>🔴 Red Zone ({stats.todayTests}/5 done): Complete {5 - stats.todayTests} more tests today to earn Silver!</span>
-                      )}
-                      {badge.tier === 'silver' && (
-                        <span>🥈 Silver Badge Active! Daily 5 quota met ({stats.todayTests} done). Reach 15 for Gold!</span>
-                      )}
-                      {badge.tier === 'gold' && (
-                        <span>🥇 Gold Badge Master! 15+ tests completed today. Elite typist!</span>
-                      )}
-                    </div>
-
-                    {/* Shareable Score Card Box */}
-                    <div className="share-card-container">
-                      <div className="share-card-header">
-                        <span>⚡ KEYSTROKE SCORE CARD</span>
-                        <span>{streakData.streak > 0 && `🔥 ${streakData.streak} DAYS`}</span>
-                      </div>
-                      <div className="share-card-row">
-                        <span>Speed</span>
-                        <span>{wpm} WPM</span>
-                      </div>
-                      <div className="share-card-row">
-                        <span>Accuracy</span>
-                        <span>{accuracy}%</span>
-                      </div>
-                      <div className="share-card-row">
-                        <span>Daily Tier</span>
-                        <span>{badge.name} ({stats.todayTests} today)</span>
-                      </div>
-                    </div>
-
-                    <div className="finish-actions">
-                      <button className="finish-action-btn primary" onClick={() => loadPassage()}>
-                        <Shuffle size={13} /> Next Passage
-                      </button>
-                      <button className="finish-action-btn secondary" onClick={restartCurrent}>
-                        <RotateCcw size={13} /> Retry
-                      </button>
-                      <button className="finish-action-btn secondary" onClick={handleShare}>
-                        {copied ? (
-                          <>
-                            <CheckCheck size={13} color="#244b3d" /> Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Share2 size={13} /> Share Score
-                          </>
-                        )}
-                      </button>
-                      <button
-                        className="finish-action-btn secondary"
-                        onClick={() => setActiveView('reports')}
-                        title="View date-wise reports"
-                      >
-                        <BarChart3 size={13} /> Reports
-                      </button>
-                    </div>
                   </div>
                 )}
                 <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
@@ -1135,6 +1069,145 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
         <span>KEYSTROKE PRACTICE • DAILY MANDATORY: 5 TESTS</span>
         <span>ONE KEY AT A TIME <span className="footer-heart">♥</span></span>
       </footer>
+
+      {/* SHOCK ANIMATED POPUP FINISH MODAL */}
+      {finished && (
+        <div
+          className="finish-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) restartCurrent();
+          }}
+        >
+          <div className="finish-modal-dialog" role="dialog" aria-modal="true">
+            <button
+              className="modal-close-btn"
+              onClick={restartCurrent}
+              aria-label="Close result popup"
+              title="Close (Esc)"
+            >
+              <X size={15} />
+            </button>
+
+            {/* Header with celebration icon */}
+            <div className="modal-header-section">
+              <div className={`modal-icon-ring ${challengeMode && !passedChallenge ? 'warning' : 'success'}`}>
+                {challengeMode && !passedChallenge ? (
+                  <ShieldAlert size={26} color="#dc2626" />
+                ) : (
+                  <Trophy size={26} color="#244b3d" />
+                )}
+              </div>
+              <h2>
+                {challengeMode && !passedChallenge ? 'Challenge Missed!' : 'Outstanding Session!'}
+              </h2>
+              <p>
+                {challengeMode && !passedChallenge
+                  ? 'Accuracy was below the 90% threshold. Practice again to claim the challenge!'
+                  : 'You crushed the passage! Here is your performance and daily badge progress.'}
+              </p>
+            </div>
+
+            {/* 4 Score Metric Boxes */}
+            <div className="modal-metrics-grid">
+              <div className="modal-metric-card">
+                <small><Zap size={10} /> SPEED</small>
+                <strong>{wpm} <span className="unit">WPM</span></strong>
+              </div>
+              <div className="modal-metric-card">
+                <small><Target size={10} /> ACCURACY</small>
+                <strong>{accuracy}<span className="unit">%</span></strong>
+              </div>
+              <div className="modal-metric-card">
+                <small><Check size={10} /> CHARS</small>
+                <strong>{correct} <span className="unit">keys</span></strong>
+              </div>
+              <div className="modal-metric-card">
+                <small><Flame size={10} /> STREAK</small>
+                <strong style={{ color: '#ea580c' }}>
+                  {streakData.streak} <span className="unit">days</span>
+                </strong>
+              </div>
+            </div>
+
+            {/* Daily Badge & Quota Alert Banner */}
+            <div className={`modal-badge-banner ${badge.tier}`}>
+              <div className="banner-icon-wrap">
+                {badge.tier === 'red' && <span className="banner-badge-icon">🔴</span>}
+                {badge.tier === 'silver' && <span className="banner-badge-icon">🥈</span>}
+                {badge.tier === 'gold' && <span className="banner-badge-icon">🥇</span>}
+              </div>
+              <div className="banner-text-wrap">
+                <h4>
+                  {badge.tier === 'red' && `Red Zone: ${stats.todayTests}/5 Tests Completed`}
+                  {badge.tier === 'silver' && `Silver Badge Active! (${stats.todayTests} tests)`}
+                  {badge.tier === 'gold' && `Gold Badge Master! (${stats.todayTests} tests)`}
+                </h4>
+                <p>
+                  {badge.tier === 'red' && `5 daily tests are mandatory. Complete ${5 - stats.todayTests} more tests today to escape the Red Zone!`}
+                  {badge.tier === 'silver' && `Mandatory daily quota met! Complete ${15 - stats.todayTests} more tests to unlock the prestigious Gold Badge.`}
+                  {badge.tier === 'gold' && `Legendary consistency! 15+ daily sessions completed. You hold the maximum Gold Badge.`}
+                </p>
+                {/* Mini progress bar inside banner */}
+                <div className="modal-banner-rail">
+                  <div
+                    className={`modal-banner-fill ${badge.tier}`}
+                    style={{
+                      width: stats.todayTests >= 15
+                        ? '100%'
+                        : stats.todayTests >= 5
+                        ? `${50 + ((stats.todayTests - 5) / 10) * 50}%`
+                        : `${(stats.todayTests / 5) * 50}%`
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Shareable Score Card */}
+            <div className="modal-sharecard">
+              <div className="modal-sharecard-header">
+                <span>⚡ KEYSTROKE RESULT CARD</span>
+                <button className="copy-card-mini-btn" onClick={handleShare}>
+                  {copied ? <><CheckCheck size={11} color="#244b3d" /> Copied!</> : <><Share2 size={11} /> Copy Card</>}
+                </button>
+              </div>
+              <div className="modal-sharecard-content">
+                <div className="modal-sharecard-row">
+                  <span>Speed & Accuracy:</span>
+                  <strong>{wpm} WPM • {accuracy}% Acc</strong>
+                </div>
+                <div className="modal-sharecard-row">
+                  <span>Difficulty & Type:</span>
+                  <span>{level} • {type}</span>
+                </div>
+                <div className="modal-sharecard-row">
+                  <span>Today's Standing:</span>
+                  <span>{badge.name} ({stats.todayTests} tests)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="modal-actions-row">
+              <button className="finish-action-btn primary" onClick={() => loadPassage()}>
+                <Shuffle size={13} /> Next Passage
+              </button>
+              <button className="finish-action-btn secondary" onClick={restartCurrent}>
+                <RotateCcw size={13} /> Retry
+              </button>
+              <button
+                className="finish-action-btn secondary"
+                onClick={() => {
+                  restartCurrent();
+                  setActiveView('reports');
+                }}
+              >
+                <BarChart3 size={13} /> View Reports
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
