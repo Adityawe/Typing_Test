@@ -20,7 +20,10 @@ import {
   Volume2,
   VolumeX,
   Share2,
-  CheckCheck
+  CheckCheck,
+  BarChart3,
+  TrendingUp,
+  CalendarDays
 } from 'lucide-react';
 import { getDynamicTypingText } from './textService';
 import {
@@ -29,7 +32,9 @@ import {
   clearAllHistory,
   getBadgeStatus,
   calculateStats,
-  getTodayDateStr
+  getTodayDateStr,
+  groupHistoryByDate,
+  getDateWiseTrendData
 } from './historyService';
 import {
   playKeyClick,
@@ -41,6 +46,8 @@ import {
   setSoundEnabled
 } from './soundService';
 import { syncDailyStreak } from './streakService';
+import DateWiseChart from './DateWiseChart';
+import DateWiseHistoryList from './DateWiseHistoryList';
 
 const types = ['Words', 'Sentences', 'Paragraphs', 'Numbers'];
 const levels = ['Beginner', 'Advanced', 'Expert'];
@@ -62,9 +69,10 @@ function App() {
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
   const [copied, setCopied] = useState(false);
   const [challengeMode, setChallengeMode] = useState(false);
-  const [activeView, setActiveView] = useState('practice'); // 'practice' | 'challenge' | 'history'
+  const [activeView, setActiveView] = useState('practice'); // 'practice' | 'challenge' | 'reports' | 'history'
   const [history, setHistory] = useState(() => getHistory());
   const [historyFilter, setHistoryFilter] = useState('all'); // 'all' | 'today' | 'challenge'
+  const [historyDisplayMode, setHistoryDisplayMode] = useState('datewise'); // 'datewise' | 'flat'
 
   const inputRef = useRef(null);
   const fetchIdRef = useRef(0);
@@ -78,10 +86,12 @@ function App() {
   const wpm = elapsed > 0 ? Math.round((correct / 5) / (elapsed / 60)) : 0;
   const progress = text.length ? Math.min((typed.length / text.length) * 100, 100) : 0;
 
-  // Stats, Badge tier, and Daily Streak calculation
+  // Stats, Badge tier, Daily Streak, Date-Wise Groups, and Trend Data
   const stats = useMemo(() => calculateStats(history), [history]);
   const badge = useMemo(() => getBadgeStatus(stats.todayTests), [stats.todayTests]);
   const streakData = useMemo(() => syncDailyStreak(stats.todayTests), [stats.todayTests]);
+  const dateGroups = useMemo(() => groupHistoryByDate(history), [history]);
+  const trendData = useMemo(() => getDateWiseTrendData(history), [history]);
 
   // Challenge pass condition: accuracy must be >= 90%
   const passedChallenge = challengeMode ? accuracy >= 90 : true;
@@ -237,7 +247,7 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
     }
   }
 
-  // Filtered history list
+  // Filtered flat history list
   const filteredHistory = useMemo(() => {
     if (historyFilter === 'today') {
       const today = getTodayDateStr();
@@ -286,6 +296,13 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
             >
               <Trophy size={12} />
               Challenge Mode
+            </button>
+            <button
+              className={`nav-tab-btn ${activeView === 'reports' ? 'active' : ''}`}
+              onClick={() => setActiveView('reports')}
+            >
+              <BarChart3 size={12} />
+              Report & Progress
             </button>
             <button
               className={`nav-tab-btn ${activeView === 'history' ? 'active' : ''}`}
@@ -586,10 +603,10 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                       </button>
                       <button
                         className="finish-action-btn secondary"
-                        onClick={() => setActiveView('history')}
-                        title="View history"
+                        onClick={() => setActiveView('reports')}
+                        title="View date-wise reports"
                       >
-                        <History size={13} /> History
+                        <BarChart3 size={13} /> Reports
                       </button>
                     </div>
                   </div>
@@ -854,13 +871,78 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
           </section>
         )}
 
-        {/* VIEW 3: HISTORY & PERFORMANCE STATS */}
+        {/* VIEW 3: REPORTS & DATE-WISE PROGRESS GRAPH */}
+        {activeView === 'reports' && (
+          <section className="dashboard-section" style={{ marginTop: 0 }}>
+            <div className="intro">
+              <div className="eyebrow"><span className="eyebrow-line" /> PERFORMANCE & TIMELINE</div>
+              <h1>Progress <em>Report.</em></h1>
+              <p>Track your date-wise speed curves, accuracy evolution, and daily test volume.</p>
+            </div>
+
+            {/* Performance Growth Highlight Banner */}
+            {trendData.timeline.length > 0 && (
+              <div className="report-growth-banner">
+                <div className="growth-left">
+                  <div className="growth-icon-circle">
+                    <TrendingUp size={16} />
+                  </div>
+                  <div>
+                    <h4>
+                      {trendData.wpmGain >= 0
+                        ? `+${trendData.wpmGain} WPM Speed Growth`
+                        : `${trendData.wpmGain} WPM Speed Shift`}
+                    </h4>
+                    <p>
+                      {trendData.timeline.length >= 2
+                        ? `${trendData.percentGain >= 0 ? '+' : ''}${trendData.percentGain}% change from your earliest recorded day (${trendData.timeline[0].shortDate}) to today.`
+                        : 'First day benchmark recorded. Practice across consecutive days to generate your long-term trend curve.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="growth-metrics">
+                  <div className="growth-metric-item">
+                    <small>ACTIVE PRACTICE DAYS</small>
+                    <strong>{trendData.totalActiveDays} {trendData.totalActiveDays === 1 ? 'Day' : 'Days'}</strong>
+                  </div>
+                  {trendData.bestDateRecord && (
+                    <div className="growth-metric-item">
+                      <small>BEST DAY ({trendData.bestDateRecord.shortDate})</small>
+                      <strong>{trendData.bestDateRecord.maxWpm} WPM</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Interactive Date-Wise Graph */}
+            <DateWiseChart timeline={trendData.timeline} />
+
+            {/* Date-Wise History Breakdown Section */}
+            <div className="section-card">
+              <div className="section-header">
+                <div>
+                  <h3 className="section-title">
+                    <CalendarDays size={16} color="#244b3d" />
+                    Date-Wise Practice Sessions
+                  </h3>
+                  <p className="section-desc">Daily scores and milestones grouped by calendar date</p>
+                </div>
+              </div>
+
+              <DateWiseHistoryList dateGroups={dateGroups} />
+            </div>
+          </section>
+        )}
+
+        {/* VIEW 4: HISTORY & PERFORMANCE STATS */}
         {activeView === 'history' && (
           <section className="dashboard-section" style={{ marginTop: 0 }}>
             <div className="intro">
               <div className="eyebrow"><span className="eyebrow-line" /> PERFORMANCE LOG</div>
               <h1>Typing <em>History.</em></h1>
-              <p>Track your score, accuracy, and consistency across all your practice sessions.</p>
+              <p>Review your scores, filter records, or inspect your date-wise breakdown.</p>
             </div>
 
             {/* Overall Stats Cards */}
@@ -906,48 +988,82 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               </div>
             </div>
 
-            {/* History Table Card */}
+            {/* History Card with View Switcher */}
             <div className="section-card">
               <div className="section-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <h3 className="section-title">
                     <History size={16} />
-                    Session Records ({filteredHistory.length})
+                    Session Records ({history.length})
                   </h3>
-                  {/* Filter tabs */}
-                  <div className="pill-tabs" style={{ background: '#f5f7f4' }}>
+
+                  {/* Mode switcher: Date-wise vs Flat table */}
+                  <div className="pill-tabs" style={{ background: '#edf1ec' }}>
                     <button
-                      className={`pill-tab ${historyFilter === 'all' ? 'active' : ''}`}
-                      onClick={() => setHistoryFilter('all')}
+                      className={`pill-tab ${historyDisplayMode === 'datewise' ? 'active' : ''}`}
+                      onClick={() => setHistoryDisplayMode('datewise')}
                       style={{ padding: '2px 8px', fontSize: '9px' }}
                     >
-                      All
+                      <CalendarDays size={10} style={{ marginRight: '3px' }} />
+                      Date-Wise Groups
                     </button>
                     <button
-                      className={`pill-tab ${historyFilter === 'today' ? 'active' : ''}`}
-                      onClick={() => setHistoryFilter('today')}
+                      className={`pill-tab ${historyDisplayMode === 'flat' ? 'active' : ''}`}
+                      onClick={() => setHistoryDisplayMode('flat')}
                       style={{ padding: '2px 8px', fontSize: '9px' }}
                     >
-                      Today ({stats.todayTests})
-                    </button>
-                    <button
-                      className={`pill-tab ${historyFilter === 'challenge' ? 'active' : ''}`}
-                      onClick={() => setHistoryFilter('challenge')}
-                      style={{ padding: '2px 8px', fontSize: '9px' }}
-                    >
-                      Challenge Mode
+                      Flat Table
                     </button>
                   </div>
+
+                  {historyDisplayMode === 'flat' && (
+                    /* Filter tabs for flat table */
+                    <div className="pill-tabs" style={{ background: '#f5f7f4' }}>
+                      <button
+                        className={`pill-tab ${historyFilter === 'all' ? 'active' : ''}`}
+                        onClick={() => setHistoryFilter('all')}
+                        style={{ padding: '2px 8px', fontSize: '9px' }}
+                      >
+                        All
+                      </button>
+                      <button
+                        className={`pill-tab ${historyFilter === 'today' ? 'active' : ''}`}
+                        onClick={() => setHistoryFilter('today')}
+                        style={{ padding: '2px 8px', fontSize: '9px' }}
+                      >
+                        Today ({stats.todayTests})
+                      </button>
+                      <button
+                        className={`pill-tab ${historyFilter === 'challenge' ? 'active' : ''}`}
+                        onClick={() => setHistoryFilter('challenge')}
+                        style={{ padding: '2px 8px', fontSize: '9px' }}
+                      >
+                        Challenge Mode
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {history.length > 0 && (
-                  <button className="clear-btn" onClick={handleClearHistory} title="Clear saved history">
-                    <Trash2 size={11} /> Clear History
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    className="restart-button"
+                    onClick={() => setActiveView('reports')}
+                    title="View progress graph"
+                  >
+                    <BarChart3 size={12} /> View Graph
                   </button>
-                )}
+                  {history.length > 0 && (
+                    <button className="clear-btn" onClick={handleClearHistory} title="Clear saved history">
+                      <Trash2 size={11} /> Clear History
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {filteredHistory.length === 0 ? (
+              {/* Body: Date-wise accordion or flat table */}
+              {historyDisplayMode === 'datewise' ? (
+                <DateWiseHistoryList dateGroups={dateGroups} />
+              ) : filteredHistory.length === 0 ? (
                 <div className="empty-history">
                   <Clock size={28} className="empty-history-icon" />
                   <p>No typing sessions recorded under this filter yet.</p>

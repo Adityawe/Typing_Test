@@ -1462,3 +1462,304 @@ button, select, textarea {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* DATE-WISE PROGRESS CHART & REPORT PAGE */
+.date-chart-card {
+  background: #ffffff;
+  border: 1px solid #e9ede8;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(43, 63, 51, 0.035);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f3ef;
+}
+
+.chart-main-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #23342d;
+}
+
+.chart-subtitle {
+  font-size: 10px;
+  color: #849288;
+  margin-top: 2px;
+}
+
+.chart-empty {
+  padding: 36px 16px;
+  text-align: center;
+  color: #8b998f;
+}
+
+.chart-empty p {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin: 6px 0 2px;
+  color: #3b4b42;
+}
+
+.chart-empty span {
+  font-size: 10.5px;
+  color: #849288;
+}
+
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-dot {
+  transition: all 0.15s ease;
+}
+
+.chart-tooltip-badge {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #f8faf7;
+  border: 1px solid #e7ede5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+}
+
+.tooltip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #e1e7df;
+  font-size: 11px;
+}
+
+.tooltip-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.tooltip-grid small {
+  display: block;
+  font-size: 8px;
+  font-family: 'DM Mono', monospace;
+  color: #7d8b82;
+  letter-spacing: 0.5px;
+}
+
+.tooltip-grid span {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  color: #244b3d;
+}
+
+/* REPORT GROWTH BANNER */
+.report-growth-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: #f0f5f1;
+  border: 1px solid #d8e5dc;
+  margin-bottom: 16px;
+}
+
+.growth-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.growth-icon-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #244b3d;
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.growth-left h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #20362b;
+}
+
+.growth-left p {
+  font-size: 11px;
+  color: #63776b;
+  margin-top: 1px;
+}
+
+.growth-metrics {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.growth-metric-item {
+  text-align: right;
+}
+
+.growth-metric-item small {
+  display: block;
+  font-size: 8px;
+  font-family: 'DM Mono', monospace;
+  color: #728479;
+}
+
+.growth-metric-item strong {
+  font-size: 15px;
+  font-weight: 800;
+  font-family: 'DM Mono', monospace;
+  color: #244b3d;
+}
+
+/* DATE-WISE HISTORY ACCORDION & CARDS */
+.date-history-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.date-history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+  font-size: 11px;
+  color: #6d7b73;
+}
+
+.date-history-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accordion-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.text-link-btn {
+  background: transparent;
+  border: 0;
+  color: #244b3d;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.text-link-btn:hover {
+  text-decoration: underline;
+}
+
+.date-groups-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.date-group-card {
+  background: #ffffff;
+  border: 1px solid #e8ede6;
+  border-radius: 9px;
+  overflow: hidden;
+  transition: all 0.15s ease;
+}
+
+.date-group-card.is-open {
+  border-color: #cbd8cc;
+  box-shadow: 0 3px 12px rgba(36, 75, 61, 0.05);
+}
+
+.date-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  background: #fafbf9;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.date-group-header:hover {
+  background: #f4f6f2;
+}
+
+.date-group-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.date-calendar-icon {
+  font-size: 16px;
+}
+
+.date-group-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #23342d;
+}
+
+.date-group-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #7b8a81;
+  margin-top: 2px;
+}
+
+.date-group-meta strong {
+  color: #244b3d;
+}
+
+.date-group-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accordion-toggle-btn {
+  background: transparent;
+  border: 0;
+  color: #728178;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.date-group-content {
+  border-top: 1px solid #edf1eb;
+  background: #fff;
+}

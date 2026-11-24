@@ -162,3 +162,110 @@ export function calculateStats(history) {
     avgAccuracy: Math.round(totalAcc / totalTests)
   };
 }
+
+// Format friendly date label (e.g., Today (Nov 24), Yesterday (Nov 23), Nov 20, 2026)
+export function formatDateLabel(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+
+  const now = new Date();
+  const todayStr = getTodayDateStr();
+  const yest = new Date(now);
+  yest.setDate(yest.getDate() - 1);
+  const yestStr = `${yest.getFullYear()}-${String(yest.getMonth() + 1).padStart(2, '0')}-${String(yest.getDate()).padStart(2, '0')}`;
+
+  const monthShort = dt.toLocaleDateString(undefined, { month: 'short' });
+  if (dateStr === todayStr) return `Today (${monthShort} ${d})`;
+  if (dateStr === yestStr) return `Yesterday (${monthShort} ${d})`;
+  return `${monthShort} ${d}, ${y}`;
+}
+
+export function formatShortDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Group all history sessions date-wise (sorted newest date first)
+export function groupHistoryByDate(history) {
+  if (!history || history.length === 0) return [];
+
+  const groups = {};
+  for (const item of history) {
+    const key = item.dateStr || getTodayDateStr();
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(item);
+  }
+
+  // Sort descending by date (newest date first)
+  const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  return sortedDates.map((dateStr) => {
+    const list = groups[dateStr];
+    const count = list.length;
+    const totalWpm = list.reduce((sum, item) => sum + (item.wpm || 0), 0);
+    const totalAcc = list.reduce((sum, item) => sum + (item.accuracy || 0), 0);
+    const maxWpm = Math.max(...list.map((item) => item.wpm || 0), 0);
+    const avgWpm = Math.round(totalWpm / count);
+    const avgAccuracy = Math.round(totalAcc / count);
+    const badge = getBadgeStatus(count);
+
+    return {
+      dateStr,
+      displayDate: formatDateLabel(dateStr),
+      shortDate: formatShortDate(dateStr),
+      count,
+      avgWpm,
+      maxWpm,
+      avgAccuracy,
+      badge,
+      tests: list
+    };
+  });
+}
+
+// Get chronological date-wise trend data for the progress chart (oldest date to newest date)
+export function getDateWiseTrendData(history) {
+  if (!history || history.length === 0) {
+    return {
+      timeline: [],
+      wpmGain: 0,
+      percentGain: 0,
+      bestDateRecord: null,
+      totalActiveDays: 0
+    };
+  }
+
+  const grouped = groupHistoryByDate(history);
+  // Sort chronological for graph left-to-right (oldest -> newest)
+  const timeline = [...grouped].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+
+  const totalActiveDays = timeline.length;
+  let wpmGain = 0;
+  let percentGain = 0;
+
+  if (timeline.length >= 2) {
+    const firstDayAvg = timeline[0].avgWpm;
+    const lastDayAvg = timeline[timeline.length - 1].avgWpm;
+    wpmGain = lastDayAvg - firstDayAvg;
+    percentGain = firstDayAvg > 0 ? Math.round((wpmGain / firstDayAvg) * 100) : 0;
+  }
+
+  const bestDateRecord = [...timeline].sort((a, b) => b.maxWpm - a.maxWpm)[0] || null;
+
+  return {
+    timeline,
+    wpmGain,
+    percentGain,
+    bestDateRecord,
+    totalActiveDays
+  };
+}
