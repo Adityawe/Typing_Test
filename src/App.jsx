@@ -308,11 +308,11 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
             }}
             aria-label="Keystroke home"
           >
-            <span className="brand-mark"><Keyboard size={16} strokeWidth={2.2} /></span>
-            <span>key<span className="brand-light">stroke</span></span>
+            <span className="brand-mark"><Keyboard size={17} strokeWidth={2.2} /></span>
+            <span className="brand-name">key<span className="brand-light">stroke</span></span>
           </a>
 
-          {/* Navigation Tabs */}
+          {/* Desktop Navigation Tabs */}
           <nav className="topbar-nav" aria-label="Views">
             <button
               className={`nav-tab-btn ${activeView === 'practice' && !challengeMode ? 'active' : ''}`}
@@ -321,6 +321,7 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                 setActiveView('practice');
               }}
             >
+              <Keyboard size={13} />
               Practice
             </button>
             <button
@@ -330,21 +331,21 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                 setActiveView('challenge');
               }}
             >
-              <Trophy size={12} />
+              <Trophy size={13} />
               Challenge Mode
             </button>
             <button
               className={`nav-tab-btn ${activeView === 'reports' ? 'active' : ''}`}
               onClick={() => setActiveView('reports')}
             >
-              <BarChart3 size={12} />
+              <BarChart3 size={13} />
               Report & Progress
             </button>
             <button
               className={`nav-tab-btn ${activeView === 'history' ? 'active' : ''}`}
               onClick={() => setActiveView('history')}
             >
-              <History size={12} />
+              <History size={13} />
               History
               {history.length > 0 && <span className="badge-count">{history.length}</span>}
             </button>
@@ -357,8 +358,8 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               onClick={() => setActiveView('challenge')}
               title={`Today: ${stats.todayPoints.toLocaleString()} PTS | All-time: ${stats.totalPoints.toLocaleString()} PTS`}
             >
-              <Award size={12} color="#ca8a04" />
-              <span>{stats.todayPoints.toLocaleString()} PTS</span>
+              <Award size={13} color="#ca8a04" />
+              <span>{stats.todayPoints.toLocaleString()} <span className="pts-unit">PTS</span></span>
             </button>
 
             {/* Daily Streak Counter */}
@@ -367,8 +368,8 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               onClick={() => setActiveView('challenge')}
               title={`Daily Streak: ${streakData.streak} days consecutive!`}
             >
-              <Flame size={12} color="#ea580c" />
-              <span>{streakData.streak} {streakData.streak === 1 ? 'DAY' : 'DAYS'}</span>
+              <Flame size={13} color="#ea580c" />
+              <span>{streakData.streak} <span className="pts-unit">{streakData.streak === 1 ? 'DAY' : 'DAYS'}</span></span>
             </button>
 
             {/* Live Daily Goal & Badge Status Button */}
@@ -378,11 +379,13 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               title={`${badge.name} - ${badge.description}`}
             >
               <span className={`pulse-dot ${badge.tier}`} />
-              {badge.tier === 'red' && `🔴 RED ZONE (${stats.todayTests}/5)`}
-              {badge.tier === 'bronze' && `🥉 BRONZE (${stats.todayTests})`}
-              {badge.tier === 'silver' && `🥈 SILVER (${stats.todayTests})`}
-              {badge.tier === 'gold' && `🥇 GOLD (${stats.todayTests})`}
-              {badge.tier === 'diamond' && `💎 DIAMOND (${stats.todayTests})`}
+              <span className="badge-pill-text">
+                {badge.tier === 'red' && `RED (${stats.todayTests}/5)`}
+                {badge.tier === 'bronze' && `BRONZE (${stats.todayTests})`}
+                {badge.tier === 'silver' && `SILVER (${stats.todayTests})`}
+                {badge.tier === 'gold' && `GOLD (${stats.todayTests})`}
+                {badge.tier === 'diamond' && `DIAMOND (${stats.todayTests})`}
+              </span>
             </button>
 
             {/* Mechanical Keyboard Sound Toggle */}
@@ -392,7 +395,7 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               aria-label={soundOn ? 'Mute keyboard sounds' : 'Enable mechanical keyboard sounds'}
               title={soundOn ? 'Sound: Mechanical Click (On)' : 'Sound: Muted'}
             >
-              {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+              {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
 
             <span className="top-divider" />
@@ -415,6 +418,45 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
             </button>
           </div>
         </div>
+
+        {/* Mobile / Tablet Segmented Sub-Navbar */}
+        <nav className="mobile-nav-bar" aria-label="Mobile navigation">
+          <button
+            className={`mobile-nav-btn ${activeView === 'practice' && !challengeMode ? 'active' : ''}`}
+            onClick={() => {
+              setChallengeMode(false);
+              setActiveView('practice');
+            }}
+          >
+            <Keyboard size={13} />
+            <span>Practice</span>
+          </button>
+          <button
+            className={`mobile-nav-btn ${challengeMode || activeView === 'challenge' ? 'active' : ''}`}
+            onClick={() => {
+              setChallengeMode(true);
+              setActiveView('challenge');
+            }}
+          >
+            <Trophy size={13} />
+            <span>Challenge</span>
+          </button>
+          <button
+            className={`mobile-nav-btn ${activeView === 'reports' ? 'active' : ''}`}
+            onClick={() => setActiveView('reports')}
+          >
+            <BarChart3 size={13} />
+            <span>Progress</span>
+          </button>
+          <button
+            className={`mobile-nav-btn ${activeView === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveView('history')}
+          >
+            <History size={13} />
+            <span>History</span>
+            {history.length > 0 && <span className="mobile-badge-count">{history.length}</span>}
+          </button>
+        </nav>
       </header>
 
       <main id="home">
@@ -525,38 +567,37 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
 
               <div className="stats-row" aria-live="polite">
                 <div className="stat">
-                  <span className="stat-label"><Zap size={11} /> SPEED</span>
+                  <span className="stat-label"><Zap size={13} /> SPEED</span>
                   <span className="stat-value">{wpm}<small>WPM</small></span>
                 </div>
-                <div className="stat-separator" />
                 <div className="stat">
-                  <span className="stat-label"><Target size={11} /> ACCURACY</span>
+                  <span className="stat-label"><Target size={13} /> ACCURACY</span>
                   <span className="stat-value">{accuracy}<small>%</small></span>
                 </div>
-                <div className="stat-separator" />
-                <div className="stat">
-                  <span className="stat-label"><Award size={11} /> SCORE</span>
-                  <span className="stat-value" style={{ color: '#a16207' }}>+{sessionPoints}<small>PTS</small></span>
+                <div className="stat stat-score-box">
+                  <span className="stat-label"><Award size={13} color="#ca8a04" /> SCORE</span>
+                  <span className="stat-value stat-score-val">+{sessionPoints}<small>PTS</small></span>
                 </div>
-                <div className="stat-separator" />
-                <div className="stat timer-stat">
-                  <span className="stat-label"><Timer size={11} /> REMAINING</span>
-                  <span className={`stat-value ${timeLeft <= 5 ? 'urgent' : ''}`}>
+                <div className={`stat timer-stat ${timeLeft <= 5 ? 'urgent' : ''}`}>
+                  <span className="stat-label"><Timer size={13} /> REMAINING</span>
+                  <span className="stat-value">
                     {String(Math.floor(timeLeft / 60)).padStart(2, '0')}:{String(timeLeft % 60).padStart(2, '0')}
                   </span>
-                </div>
-                <div className="session-tag">
-                  {loading ? (
-                    <span className="api-loading"><Loader2 size={9} className="spin-icon" /> FETCHING</span>
-                  ) : (
-                    <span>{level.toUpperCase()} • {source.toUpperCase()}</span>
-                  )}
                 </div>
               </div>
 
               <div className={`typing-area ${running ? 'is-running' : ''}`} onClick={startTyping}>
-                <div className="typing-hint">
-                  <span className="hint-key">↵</span> CLICK HERE OR START TYPING
+                <div className="typing-header-bar">
+                  <div className="typing-hint">
+                    <span className="hint-key">↵</span> CLICK HERE OR START TYPING
+                  </div>
+                  <div className="session-tag">
+                    {loading ? (
+                      <span className="api-loading"><Loader2 size={10} className="spin-icon" /> FETCHING TEXT...</span>
+                    ) : (
+                      <span>{level.toUpperCase()} • {type.toUpperCase()} • {source.toUpperCase()}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="passage" aria-hidden="true">
                   {[...text].map((char, index) => {
