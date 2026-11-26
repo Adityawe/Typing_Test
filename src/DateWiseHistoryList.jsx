@@ -72,6 +72,8 @@ export default function DateWiseHistoryList({ dateGroups = [] }) {
                       <span>Peak: <strong>{group.maxWpm} WPM</strong></span>
                       <span>•</span>
                       <span>Acc: <strong>{group.avgAccuracy}%</strong></span>
+                      <span>•</span>
+                      <span style={{ color: '#a16207' }}>Score: <strong>⭐ {group.totalPoints ? group.totalPoints.toLocaleString() : 0} PTS</strong></span>
                     </div>
                   </div>
                 </div>
@@ -80,8 +82,10 @@ export default function DateWiseHistoryList({ dateGroups = [] }) {
                   {/* Badge earned on this date */}
                   <span className={`badge-pill pill-${group.badge.tier}`} style={{ fontSize: '9px', padding: '2px 7px' }}>
                     {group.badge.tier === 'red' && `🔴 Red Zone (${group.count}/5)`}
+                    {group.badge.tier === 'bronze' && `🥉 Bronze (${group.count})`}
                     {group.badge.tier === 'silver' && `🥈 Silver (${group.count})`}
-                    {group.badge.tier === 'gold' && `🥇 Gold Master (${group.count})`}
+                    {group.badge.tier === 'gold' && `🥇 Gold (${group.count})`}
+                    {group.badge.tier === 'diamond' && `💎 Diamond Master (${group.count})`}
                   </span>
 
                   <button className="accordion-toggle-btn" aria-label="Toggle day sessions">
@@ -101,6 +105,7 @@ export default function DateWiseHistoryList({ dateGroups = [] }) {
                         <th>CATEGORY</th>
                         <th>SPEED</th>
                         <th>ACCURACY</th>
+                        <th>SCORE</th>
                         <th>DURATION</th>
                       </tr>
                     </thead>
@@ -125,6 +130,11 @@ export default function DateWiseHistoryList({ dateGroups = [] }) {
                           </td>
                           <td>
                             <span className="table-acc">{item.accuracy}%</span>
+                          </td>
+                          <td>
+                            <span style={{ color: '#a16207', fontWeight: 600, fontFamily: 'DM Mono' }}>
+                              +{item.points || 0} PTS
+                            </span>
                           </td>
                           <td>
                             <span style={{ color: '#88968d', fontFamily: 'DM Mono' }}>{item.duration}s</span>

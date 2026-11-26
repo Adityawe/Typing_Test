@@ -24,6 +24,8 @@ import {
   BarChart3,
   TrendingUp,
   CalendarDays,
+  Crown,
+  Star,
   X
 } from 'lucide-react';
 import { getDynamicTypingText } from './textService';
@@ -35,7 +37,8 @@ import {
   calculateStats,
   getTodayDateStr,
   groupHistoryByDate,
-  getDateWiseTrendData
+  getDateWiseTrendData,
+  calculatePoints
 } from './historyService';
 import {
   playKeyClick,
@@ -87,6 +90,21 @@ function App() {
   const wpm = elapsed > 0 ? Math.round((correct / 5) / (elapsed / 60)) : 0;
   const progress = text.length ? Math.min((typed.length / text.length) * 100, 100) : 0;
 
+  // Challenge pass condition: accuracy must be >= 90%
+  const passedChallenge = challengeMode ? accuracy >= 90 : true;
+
+  // Live session score / points calculation
+  const sessionPoints = useMemo(() => {
+    return calculatePoints({
+      wpm,
+      accuracy,
+      level,
+      duration,
+      challengeMode,
+      passedChallenge
+    });
+  }, [wpm, accuracy, level, duration, challengeMode, passedChallenge]);
+
   // Stats, Badge tier, Daily Streak, Date-Wise Groups, and Trend Data
   const stats = useMemo(() => calculateStats(history), [history]);
   const badge = useMemo(() => getBadgeStatus(stats.todayTests), [stats.todayTests]);
@@ -94,8 +112,15 @@ function App() {
   const dateGroups = useMemo(() => groupHistoryByDate(history), [history]);
   const trendData = useMemo(() => getDateWiseTrendData(history), [history]);
 
-  // Challenge pass condition: accuracy must be >= 90%
-  const passedChallenge = challengeMode ? accuracy >= 90 : true;
+  // Auto focus input when in practice mode
+  useEffect(() => {
+    if (activeView === 'practice' && !finished && !loading) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeView, loading, finished, text]);
 
   function toggleSound() {
     const next = !soundOn;
@@ -106,15 +131,24 @@ function App() {
 
   // Copy shareable score card
   function handleShare() {
-    const tierEmoji = badge.tier === 'gold' ? '🥇 Gold Badge Master' : badge.tier === 'silver' ? '🥈 Silver Badge' : '🔴 Red Zone';
+    const tierEmoji = badge.tier === 'diamond'
+      ? '💎 Diamond Master'
+      : badge.tier === 'gold'
+      ? '🥇 Gold Medal'
+      : badge.tier === 'silver'
+      ? '🥈 Silver Medal'
+      : badge.tier === 'bronze'
+      ? '🥉 Bronze Medal'
+      : '🔴 Red Zone';
     const streakLine = streakData.streak > 0 ? `🔥 Streak: ${streakData.streak} Days\n` : '';
+    const pointsLine = `⭐ Score: +${sessionPoints} PTS (Today: ${stats.todayPoints.toLocaleString()} PTS)\n`;
 
     const shareText = `⚡ Keystroke Typing Practice
 ━━━━━━━━━━━━━━━━━━━━━━━
 🚀 Speed: ${wpm} WPM
 🎯 Accuracy: ${accuracy}%
-📚 Category: ${level} • ${type}
-🏅 Daily Tier: ${tierEmoji} (${stats.todayTests} tests today)
+${pointsLine}📚 Category: ${level} • ${type}
+🏅 Medal Tier: ${tierEmoji} (${stats.todayTests} tests today)
 ${streakLine}━━━━━━━━━━━━━━━━━━━━━━━
 Practice here: https://adityawe.github.io/Typing_Test/`;
 
@@ -137,11 +171,12 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
         type,
         duration,
         challengeMode,
-        passedChallenge
+        passedChallenge,
+        points: sessionPoints
       });
       setHistory(updated);
     }
-  }, [finished, typed.length, wpm, accuracy, level, type, duration, challengeMode, passedChallenge]);
+  }, [finished, typed.length, wpm, accuracy, level, type, duration, challengeMode, passedChallenge, sessionPoints]);
 
   // Timer countdown
   useEffect(() => {
@@ -316,6 +351,16 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
           </nav>
 
           <div className="topbar-right">
+            {/* Daily XP Points Counter */}
+            <button
+              className="points-pill"
+              onClick={() => setActiveView('challenge')}
+              title={`Today: ${stats.todayPoints.toLocaleString()} PTS | All-time: ${stats.totalPoints.toLocaleString()} PTS`}
+            >
+              <Award size={12} color="#ca8a04" />
+              <span>{stats.todayPoints.toLocaleString()} PTS</span>
+            </button>
+
             {/* Daily Streak Counter */}
             <button
               className="streak-pill"
@@ -330,12 +375,14 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
             <button
               className={`badge-pill pill-${badge.tier}`}
               onClick={() => setActiveView('challenge')}
-              title={`${badge.title} - ${badge.description}`}
+              title={`${badge.name} - ${badge.description}`}
             >
               <span className={`pulse-dot ${badge.tier}`} />
               {badge.tier === 'red' && `🔴 RED ZONE (${stats.todayTests}/5)`}
+              {badge.tier === 'bronze' && `🥉 BRONZE (${stats.todayTests})`}
               {badge.tier === 'silver' && `🥈 SILVER (${stats.todayTests})`}
               {badge.tier === 'gold' && `🥇 GOLD (${stats.todayTests})`}
+              {badge.tier === 'diamond' && `💎 DIAMOND (${stats.todayTests})`}
             </button>
 
             {/* Mechanical Keyboard Sound Toggle */}
@@ -487,6 +534,11 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                   <span className="stat-value">{accuracy}<small>%</small></span>
                 </div>
                 <div className="stat-separator" />
+                <div className="stat">
+                  <span className="stat-label"><Award size={11} /> SCORE</span>
+                  <span className="stat-value" style={{ color: '#a16207' }}>+{sessionPoints}<small>PTS</small></span>
+                </div>
+                <div className="stat-separator" />
                 <div className="stat timer-stat">
                   <span className="stat-label"><Timer size={11} /> REMAINING</span>
                   <span className={`stat-value ${timeLeft <= 5 ? 'urgent' : ''}`}>
@@ -594,24 +646,32 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
 
                 <div className="daily-progress-container">
                   <div className="progress-labels">
-                    <span>Today: {stats.todayTests} tests completed</span>
+                    <span>Today: {stats.todayTests} tests completed • ⭐ {stats.todayPoints.toLocaleString()} PTS</span>
                     <span>
                       {stats.todayTests < 5
-                        ? `${5 - stats.todayTests} tests to Silver`
-                        : stats.todayTests < 15
-                        ? `${15 - stats.todayTests} tests to Gold`
-                        : 'Gold Master Reached!'}
+                        ? `${5 - stats.todayTests} tests to Bronze Medal`
+                        : stats.todayTests < 10
+                        ? `${10 - stats.todayTests} tests to Silver Medal`
+                        : stats.todayTests < 20
+                        ? `${20 - stats.todayTests} tests to Gold Medal`
+                        : stats.todayTests < 30
+                        ? `${30 - stats.todayTests} tests to Diamond Master`
+                        : '💎 Diamond Master Reached!'}
                     </span>
                   </div>
                   <div className="progress-bar-rail">
                     <div
                       className={`progress-bar-fill ${badge.tier}`}
                       style={{
-                        width: stats.todayTests >= 15
+                        width: stats.todayTests >= 30
                           ? '100%'
+                          : stats.todayTests >= 20
+                          ? `${75 + ((stats.todayTests - 20) / 10) * 25}%`
+                          : stats.todayTests >= 10
+                          ? `${50 + ((stats.todayTests - 10) / 10) * 25}%`
                           : stats.todayTests >= 5
-                          ? `${50 + ((stats.todayTests - 5) / 10) * 50}%`
-                          : `${(stats.todayTests / 5) * 50}%`
+                          ? `${25 + ((stats.todayTests - 5) / 5) * 25}%`
+                          : `${(stats.todayTests / 5) * 25}%`
                       }}
                     />
                   </div>
@@ -629,24 +689,46 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                     </div>
                   </div>
 
+                  <div className={`badge-card tier-bronze ${badge.tier === 'bronze' ? 'active-tier' : ''}`}>
+                    <span className="badge-card-icon">🥉</span>
+                    <h5>Bronze Medal</h5>
+                    <span className="badge-card-rule">5 – 9 Tests / Day</span>
+                    <div>
+                      <span className={`badge-card-status ${badge.tier === 'bronze' ? 'current' : stats.todayTests >= 5 ? 'current' : 'pending'}`}>
+                        {stats.todayTests >= 5 ? 'ACHIEVED' : 'GOAL: 5 TESTS'}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className={`badge-card tier-silver ${badge.tier === 'silver' ? 'active-tier' : ''}`}>
                     <span className="badge-card-icon">🥈</span>
-                    <h5>Silver Badge</h5>
-                    <span className="badge-card-rule">5 – 14 Tests / Day</span>
+                    <h5>Silver Medal</h5>
+                    <span className="badge-card-rule">10 – 19 Tests / Day</span>
                     <div>
-                      <span className={`badge-card-status ${badge.tier === 'silver' ? 'current' : stats.todayTests >= 5 ? 'current' : 'pending'}`}>
-                        {stats.todayTests >= 5 ? 'ACHIEVED' : 'GOAL: 5 TESTS'}
+                      <span className={`badge-card-status ${badge.tier === 'silver' ? 'current' : stats.todayTests >= 10 ? 'current' : 'pending'}`}>
+                        {stats.todayTests >= 10 ? 'ACHIEVED' : 'GOAL: 10 TESTS'}
                       </span>
                     </div>
                   </div>
 
                   <div className={`badge-card tier-gold ${badge.tier === 'gold' ? 'active-tier' : ''}`}>
                     <span className="badge-card-icon">🥇</span>
-                    <h5>Gold Badge</h5>
-                    <span className="badge-card-rule">15+ Tests / Day</span>
+                    <h5>Gold Medal</h5>
+                    <span className="badge-card-rule">20 – 29 Tests / Day</span>
                     <div>
-                      <span className={`badge-card-status ${badge.tier === 'gold' ? 'current' : 'pending'}`}>
-                        {stats.todayTests >= 15 ? 'MASTER UNLOCKED' : 'GOAL: 15 TESTS'}
+                      <span className={`badge-card-status ${badge.tier === 'gold' ? 'current' : stats.todayTests >= 20 ? 'current' : 'pending'}`}>
+                        {stats.todayTests >= 20 ? 'ACHIEVED' : 'GOAL: 20 TESTS'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={`badge-card tier-diamond ${badge.tier === 'diamond' ? 'active-tier' : ''}`}>
+                    <span className="badge-card-icon">💎</span>
+                    <h5>Diamond Master</h5>
+                    <span className="badge-card-rule">30+ Tests / Day</span>
+                    <div>
+                      <span className={`badge-card-status ${badge.tier === 'diamond' ? 'current' : 'pending'}`}>
+                        {stats.todayTests >= 30 ? 'GRANDMASTER' : 'GOAL: 30 TESTS'}
                       </span>
                     </div>
                   </div>
@@ -709,8 +791,10 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               <div className={`tracker-banner ${badge.tier}`}>
                 <div>
                   {badge.tier === 'red' && <ShieldAlert size={20} color="#dc2626" />}
+                  {badge.tier === 'bronze' && <Medal size={20} color="#ea580c" />}
                   {badge.tier === 'silver' && <Medal size={20} color="#475569" />}
                   {badge.tier === 'gold' && <Trophy size={20} color="#ca8a04" />}
+                  {badge.tier === 'diamond' && <Crown size={20} color="#0891b2" />}
                 </div>
                 <div>
                   <h4>{badge.heading}</h4>
@@ -721,30 +805,38 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               {/* Progress Tracker */}
               <div className="daily-progress-container">
                 <div className="progress-labels">
-                  <span>Current: <strong>{stats.todayTests}</strong> tests completed today</span>
+                  <span>Current: <strong>{stats.todayTests}</strong> tests completed today • <strong>⭐ {stats.todayPoints.toLocaleString()} PTS</strong></span>
                   <span>
                     {stats.todayTests < 5
-                      ? `${5 - stats.todayTests} tests needed for Silver`
-                      : stats.todayTests < 15
-                      ? `${15 - stats.todayTests} tests needed for Gold`
-                      : 'Gold Status Maintained!'}
+                      ? `${5 - stats.todayTests} tests needed for Bronze Medal`
+                      : stats.todayTests < 10
+                      ? `${10 - stats.todayTests} tests needed for Silver Medal`
+                      : stats.todayTests < 20
+                      ? `${20 - stats.todayTests} tests needed for Gold Medal`
+                      : stats.todayTests < 30
+                      ? `${30 - stats.todayTests} tests needed for Diamond Master`
+                      : '💎 Diamond Master Status Maintained!'}
                   </span>
                 </div>
                 <div className="progress-bar-rail" style={{ height: '10px' }}>
                   <div
                     className={`progress-bar-fill ${badge.tier}`}
                     style={{
-                      width: stats.todayTests >= 15
+                      width: stats.todayTests >= 30
                         ? '100%'
+                        : stats.todayTests >= 20
+                        ? `${75 + ((stats.todayTests - 20) / 10) * 25}%`
+                        : stats.todayTests >= 10
+                        ? `${50 + ((stats.todayTests - 10) / 10) * 25}%`
                         : stats.todayTests >= 5
-                        ? `${50 + ((stats.todayTests - 5) / 10) * 50}%`
-                        : `${(stats.todayTests / 5) * 50}%`
+                        ? `${25 + ((stats.todayTests - 5) / 5) * 25}%`
+                        : `${(stats.todayTests / 5) * 25}%`
                     }}
                   />
                 </div>
               </div>
 
-              {/* Tier Cards */}
+              {/* 5 Medal Tier Cards */}
               <div className="badges-grid">
                 <div className={`badge-card tier-red ${badge.tier === 'red' ? 'active-tier' : ''}`}>
                   <span className="badge-card-icon">🔴</span>
@@ -760,30 +852,58 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                   </div>
                 </div>
 
-                <div className={`badge-card tier-silver ${badge.tier === 'silver' ? 'active-tier' : ''}`}>
-                  <span className="badge-card-icon">🥈</span>
-                  <h5>Silver Badge</h5>
-                  <span className="badge-card-rule">5 – 14 Tests Completed</span>
+                <div className={`badge-card tier-bronze ${badge.tier === 'bronze' ? 'active-tier' : ''}`}>
+                  <span className="badge-card-icon">🥉</span>
+                  <h5>Bronze Medal</h5>
+                  <span className="badge-card-rule">5 – 9 Tests Completed</span>
                   <p style={{ fontSize: '10px', color: '#88958c', margin: '6px 0' }}>
-                    Mandatory daily typing quota successfully completed.
+                    Mandatory daily quota cleared! Baseline achieved.
                   </p>
                   <div>
-                    <span className={`badge-card-status ${badge.tier === 'silver' ? 'current' : stats.todayTests >= 5 ? 'current' : 'pending'}`}>
+                    <span className={`badge-card-status ${badge.tier === 'bronze' ? 'current' : stats.todayTests >= 5 ? 'current' : 'pending'}`}>
                       {stats.todayTests >= 5 ? 'BADGE UNLOCKED' : 'NEED 5 TESTS'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`badge-card tier-silver ${badge.tier === 'silver' ? 'active-tier' : ''}`}>
+                  <span className="badge-card-icon">🥈</span>
+                  <h5>Silver Medal</h5>
+                  <span className="badge-card-rule">10 – 19 Tests Completed</span>
+                  <p style={{ fontSize: '10px', color: '#88958c', margin: '6px 0' }}>
+                    Dedicated typist milestone! Double quota conquered.
+                  </p>
+                  <div>
+                    <span className={`badge-card-status ${badge.tier === 'silver' ? 'current' : stats.todayTests >= 10 ? 'current' : 'pending'}`}>
+                      {stats.todayTests >= 10 ? 'BADGE UNLOCKED' : 'NEED 10 TESTS'}
                     </span>
                   </div>
                 </div>
 
                 <div className={`badge-card tier-gold ${badge.tier === 'gold' ? 'active-tier' : ''}`}>
                   <span className="badge-card-icon">🥇</span>
-                  <h5>Gold Badge Master</h5>
-                  <span className="badge-card-rule">15+ Tests Completed</span>
+                  <h5>Gold Medal</h5>
+                  <span className="badge-card-rule">20 – 29 Tests Completed</span>
                   <p style={{ fontSize: '10px', color: '#88958c', margin: '6px 0' }}>
-                    Elite milestone! Outstanding dedication and typing volume.
+                    Typing Master milestone! Outstanding daily speed and volume.
                   </p>
                   <div>
-                    <span className={`badge-card-status ${badge.tier === 'gold' ? 'current' : 'pending'}`}>
-                      {stats.todayTests >= 15 ? 'GOLD CHAMPION' : 'NEED 15 TESTS'}
+                    <span className={`badge-card-status ${badge.tier === 'gold' ? 'current' : stats.todayTests >= 20 ? 'current' : 'pending'}`}>
+                      {stats.todayTests >= 20 ? 'GOLD CHAMPION' : 'NEED 20 TESTS'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`badge-card tier-diamond ${badge.tier === 'diamond' ? 'active-tier' : ''}`}>
+                  <span className="badge-card-icon">💎</span>
+                  <h5>Diamond Master</h5>
+                  <span className="badge-card-rule">30+ Tests Completed</span>
+                  <p style={{ fontSize: '10px', color: '#88958c', margin: '6px 0' }}>
+                    Supreme grandmaster glory! Unrivaled discipline and endurance.
+                  </p>
+                  <div>
+                    <span className={`badge-card-status ${badge.tier === 'diamond' ? 'current' : 'pending'}`}>
+                      {stats.todayTests >= 30 ? 'DIAMOND ACHIEVED' : 'NEED 30 TESTS'}
                     </span>
                   </div>
                 </div>
@@ -901,9 +1021,19 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                 </div>
               </div>
 
+              <div className="history-stat-box" style={{ background: '#fefce8', borderColor: '#fde047' }}>
+                <span className="stat-box-label" style={{ color: '#a16207' }}>TODAY'S POINTS</span>
+                <span className="stat-box-val" style={{ color: '#854d0e' }}>
+                  {stats.todayPoints.toLocaleString()}<small>PTS</small>
+                </span>
+                <div style={{ fontSize: '8px', color: '#a16207', marginTop: '2px', fontFamily: 'DM Mono' }}>
+                  PEAK: {stats.bestPoints} PTS
+                </div>
+              </div>
+
               <div className="history-stat-box">
-                <span className="stat-box-label">ALL-TIME SESSIONS</span>
-                <span className="stat-box-val">{stats.totalTests}</span>
+                <span className="stat-box-label">TOTAL XP POINTS</span>
+                <span className="stat-box-val">{stats.totalPoints.toLocaleString()}<small>PTS</small></span>
               </div>
 
               <div className="history-stat-box">
@@ -1021,6 +1151,7 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                         <th>CATEGORY</th>
                         <th>SPEED</th>
                         <th>ACCURACY</th>
+                        <th>SCORE</th>
                         <th>DURATION</th>
                       </tr>
                     </thead>
@@ -1043,6 +1174,11 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                           </td>
                           <td>
                             <span className="table-acc">{item.accuracy}%</span>
+                          </td>
+                          <td>
+                            <span style={{ color: '#a16207', fontWeight: 600, fontFamily: 'DM Mono' }}>
+                              +{item.points != null ? item.points : calculatePoints(item)} PTS
+                            </span>
                           </td>
                           <td>
                             <span style={{ color: '#88968d', fontFamily: 'DM Mono' }}>{item.duration}s</span>
@@ -1100,10 +1236,14 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
               <h2>
                 {challengeMode && !passedChallenge ? 'Challenge Missed!' : 'Outstanding Session!'}
               </h2>
-              <p>
+              <div className="modal-points-callout">
+                <Award size={13} color="#ca8a04" />
+                <span>+{sessionPoints} PTS EARNED ⭐</span>
+              </div>
+              <p style={{ marginTop: '8px' }}>
                 {challengeMode && !passedChallenge
                   ? 'Accuracy was below the 90% threshold. Practice again to claim the challenge!'
-                  : 'You crushed the passage! Here is your performance and daily badge progress.'}
+                  : 'You crushed the passage! Here is your performance, points, and daily medal progress.'}
               </p>
             </div>
 
@@ -1117,9 +1257,9 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                 <small><Target size={10} /> ACCURACY</small>
                 <strong>{accuracy}<span className="unit">%</span></strong>
               </div>
-              <div className="modal-metric-card">
-                <small><Check size={10} /> CHARS</small>
-                <strong>{correct} <span className="unit">keys</span></strong>
+              <div className="modal-metric-card points-card-highlight">
+                <small><Award size={10} color="#ca8a04" /> SCORE</small>
+                <strong style={{ color: '#a16207' }}>+{sessionPoints} <span className="unit">PTS</span></strong>
               </div>
               <div className="modal-metric-card">
                 <small><Flame size={10} /> STREAK</small>
@@ -1133,30 +1273,40 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
             <div className={`modal-badge-banner ${badge.tier}`}>
               <div className="banner-icon-wrap">
                 {badge.tier === 'red' && <span className="banner-badge-icon">🔴</span>}
+                {badge.tier === 'bronze' && <span className="banner-badge-icon">🥉</span>}
                 {badge.tier === 'silver' && <span className="banner-badge-icon">🥈</span>}
                 {badge.tier === 'gold' && <span className="banner-badge-icon">🥇</span>}
+                {badge.tier === 'diamond' && <span className="banner-badge-icon">💎</span>}
               </div>
               <div className="banner-text-wrap">
                 <h4>
                   {badge.tier === 'red' && `Red Zone: ${stats.todayTests}/5 Tests Completed`}
-                  {badge.tier === 'silver' && `Silver Badge Active! (${stats.todayTests} tests)`}
-                  {badge.tier === 'gold' && `Gold Badge Master! (${stats.todayTests} tests)`}
+                  {badge.tier === 'bronze' && `Bronze Medal Active! (${stats.todayTests} tests completed)`}
+                  {badge.tier === 'silver' && `Silver Medal Active! (${stats.todayTests} tests completed)`}
+                  {badge.tier === 'gold' && `Gold Medal Master! (${stats.todayTests} tests completed)`}
+                  {badge.tier === 'diamond' && `Diamond Grandmaster! (${stats.todayTests} tests completed)`}
                 </h4>
                 <p>
-                  {badge.tier === 'red' && `5 daily tests are mandatory. Complete ${5 - stats.todayTests} more tests today to escape the Red Zone!`}
-                  {badge.tier === 'silver' && `Mandatory daily quota met! Complete ${15 - stats.todayTests} more tests to unlock the prestigious Gold Badge.`}
-                  {badge.tier === 'gold' && `Legendary consistency! 15+ daily sessions completed. You hold the maximum Gold Badge.`}
+                  {badge.tier === 'red' && `5 daily tests are mandatory. Complete ${5 - stats.todayTests} more tests today to unlock Bronze Medal!`}
+                  {badge.tier === 'bronze' && `Mandatory daily quota met! Complete ${10 - stats.todayTests} more tests to unlock Silver Medal.`}
+                  {badge.tier === 'silver' && `Dedicated volume! Complete ${20 - stats.todayTests} more tests to unlock Gold Medal.`}
+                  {badge.tier === 'gold' && `Mastery achievement! Complete ${30 - stats.todayTests} more tests to reach supreme Diamond Master.`}
+                  {badge.tier === 'diamond' && `Legendary consistency! 30+ daily sessions completed. You hold the maximum Diamond honor.`}
                 </p>
                 {/* Mini progress bar inside banner */}
                 <div className="modal-banner-rail">
                   <div
                     className={`modal-banner-fill ${badge.tier}`}
                     style={{
-                      width: stats.todayTests >= 15
+                      width: stats.todayTests >= 30
                         ? '100%'
+                        : stats.todayTests >= 20
+                        ? `${75 + ((stats.todayTests - 20) / 10) * 25}%`
+                        : stats.todayTests >= 10
+                        ? `${50 + ((stats.todayTests - 10) / 10) * 25}%`
                         : stats.todayTests >= 5
-                        ? `${50 + ((stats.todayTests - 5) / 10) * 50}%`
-                        : `${(stats.todayTests / 5) * 50}%`
+                        ? `${25 + ((stats.todayTests - 5) / 5) * 25}%`
+                        : `${(stats.todayTests / 5) * 25}%`
                     }}
                   />
                 </div>
@@ -1177,8 +1327,12 @@ Practice here: https://adityawe.github.io/Typing_Test/`;
                   <strong>{wpm} WPM • {accuracy}% Acc</strong>
                 </div>
                 <div className="modal-sharecard-row">
-                  <span>Difficulty & Type:</span>
-                  <span>{level} • {type}</span>
+                  <span>Score Earned:</span>
+                  <strong style={{ color: '#a16207' }}>+{sessionPoints} PTS (Today: {stats.todayPoints.toLocaleString()} PTS)</strong>
+                </div>
+                <div className="modal-sharecard-row">
+                  <span>Category & Duration:</span>
+                  <span>{level} • {type} ({duration}s)</span>
                 </div>
                 <div className="modal-sharecard-row">
                   <span>Today's Standing:</span>

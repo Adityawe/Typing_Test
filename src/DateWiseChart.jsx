@@ -34,9 +34,11 @@ export default function DateWiseChart({ timeline = [] }) {
         const barH = (val / ceiling) * plotHeight;
         const y = padding.top + plotHeight - barH;
 
-        let fill = '#ef4444'; // Red Zone
-        if (val >= 15) fill = '#eab308'; // Gold
-        else if (val >= 5) fill = '#94a3b8'; // Silver
+        let fill = '#ef4444'; // Red Zone (< 5)
+        if (val >= 30) fill = '#06b6d4'; // Diamond (30+)
+        else if (val >= 20) fill = '#eab308'; // Gold (20-29)
+        else if (val >= 10) fill = '#94a3b8'; // Silver (10-19)
+        else if (val >= 5) fill = '#ea580c'; // Bronze (5-9)
 
         return { x: x - barWidth / 2, y, w: barWidth, h: barH, val, item, idx, fill };
       });
@@ -325,8 +327,10 @@ export default function DateWiseChart({ timeline = [] }) {
                 <strong>📅 {activeItem.displayDate}</strong>
                 <span className={`badge-pill pill-${activeItem.badge.tier}`} style={{ fontSize: '8px', padding: '1px 5px' }}>
                   {activeItem.badge.tier === 'red' && '🔴 Red Zone'}
-                  {activeItem.badge.tier === 'silver' && '🥈 Silver Badge'}
-                  {activeItem.badge.tier === 'gold' && '🥇 Gold Master'}
+                  {activeItem.badge.tier === 'bronze' && '🥉 Bronze Medal'}
+                  {activeItem.badge.tier === 'silver' && '🥈 Silver Medal'}
+                  {activeItem.badge.tier === 'gold' && '🥇 Gold Medal'}
+                  {activeItem.badge.tier === 'diamond' && '💎 Diamond Master'}
                 </span>
               </div>
               <div className="tooltip-grid">
@@ -341,6 +345,10 @@ export default function DateWiseChart({ timeline = [] }) {
                 <div>
                   <small>ACCURACY</small>
                   <span>{activeItem.avgAccuracy}%</span>
+                </div>
+                <div>
+                  <small>TOTAL SCORE</small>
+                  <span style={{ color: '#a16207' }}>⭐ {activeItem.totalPoints ? activeItem.totalPoints.toLocaleString() : 0} PTS</span>
                 </div>
                 <div>
                   <small>TESTS DONE</small>
